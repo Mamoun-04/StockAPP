@@ -24,16 +24,7 @@ type Account = {
   buyingPower: number;
 };
 
-type HistoricalData = {
-  time: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-};
-
-export function useMarketData(symbol?: string, timeframe: string = "1D") {
+export function useMarketData(symbol?: string) {
   const { toast } = useToast();
 
   const quote = useQuery({
@@ -48,19 +39,6 @@ export function useMarketData(symbol?: string, timeframe: string = "1D") {
     },
     enabled: !!symbol,
     refetchInterval: 5000
-  });
-
-  const historicalData = useQuery({
-    queryKey: [`/api/market/history/${symbol}`, symbol, timeframe],
-    queryFn: async () => {
-      if (!symbol) return null;
-      const res = await fetch(`/api/market/history/${symbol}?timeframe=${timeframe}`, {
-        credentials: 'include'
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json() as Promise<HistoricalData[]>;
-    },
-    enabled: !!symbol,
   });
 
   const positions = useQuery({
@@ -121,11 +99,10 @@ export function useMarketData(symbol?: string, timeframe: string = "1D") {
 
   return {
     quote: quote.data,
-    historicalData: historicalData.data,
     positions: positions.data,
     account: account.data,
-    isLoading: quote.isLoading || positions.isLoading || account.isLoading || historicalData.isLoading,
-    error: quote.error || positions.error || account.error || historicalData.error,
+    isLoading: quote.isLoading || positions.isLoading || account.isLoading,
+    error: quote.error || positions.error || account.error,
     placeTrade: tradeMutation.mutateAsync
   };
 }

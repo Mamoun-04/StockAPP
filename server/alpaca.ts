@@ -33,34 +33,17 @@ export function setupAlpacaRoutes(app: Express) {
         keyId: req.user.alpacaApiKey,
         secretKey: req.user.alpacaSecretKey,
         paper: true,
-        baseUrl: 'https://paper-api.alpaca.markets',
-        dataBaseUrl: 'https://data.alpaca.markets/v2',
       });
 
       const { symbol } = req.params;
       const quote = await alpaca.getLatestQuote(symbol) as unknown as AlpacaQuote;
-      const lastDay = await alpaca.getBarsV2(symbol, {
-        start: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        end: new Date().toISOString(),
-        timeframe: '1Day',
-      });
-
-      const bars = [];
-      for await (const bar of lastDay) {
-        bars.push(bar);
-      }
-
-      const previousClose = bars[0]?.OpenPrice || quote.AskPrice;
-      const change = quote.AskPrice - previousClose;
-      const changePercent = (change / previousClose) * 100;
-
       res.json({
         symbol,
         price: quote.AskPrice || quote.BidPrice,
         timestamp: quote.Timestamp,
         volume: quote.Volume || 0,
-        change,
-        changePercent,
+        change: 0, // We'll need to calculate this from historical data
+        changePercent: 0,
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -68,7 +51,7 @@ export function setupAlpacaRoutes(app: Express) {
     }
   });
 
-  app.get("/api/market/history/:symbol", async (req, res) => {
+  app.get("/api/market/trades/:symbol", async (req, res) => {
     try {
       if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {
         return res.status(400).send("Alpaca API credentials not configured");
@@ -78,73 +61,12 @@ export function setupAlpacaRoutes(app: Express) {
         keyId: req.user.alpacaApiKey,
         secretKey: req.user.alpacaSecretKey,
         paper: true,
-        baseUrl: 'https://paper-api.alpaca.markets',
-        dataBaseUrl: 'https://data.alpaca.markets/v2',
       });
 
       const { symbol } = req.params;
-      const { timeframe = "1D" } = req.query;
-
-      // Calculate start and end dates based on timeframe
-      const end = new Date();
-      let start = new Date();
-      let barTimeframe = "1Min";
-
-      switch (timeframe) {
-        case "1D":
-          start.setDate(end.getDate() - 1);
-          barTimeframe = "1Min";
-          break;
-        case "1W":
-          start.setDate(end.getDate() - 7);
-          barTimeframe = "5Min";
-          break;
-        case "1M":
-          start.setMonth(end.getMonth() - 1);
-          barTimeframe = "15Min";
-          break;
-        case "3M":
-          start.setMonth(end.getMonth() - 3);
-          barTimeframe = "1Hour";
-          break;
-        case "YTD":
-          start = new Date(end.getFullYear(), 0, 1); // January 1st of current year
-          barTimeframe = "1Day";
-          break;
-        case "1Y":
-          start.setFullYear(end.getFullYear() - 1);
-          barTimeframe = "1Day";
-          break;
-        default:
-          start.setDate(end.getDate() - 1);
-          barTimeframe = "1Min";
-      }
-
-      console.log(`Fetching ${symbol} data from ${start.toISOString()} to ${end.toISOString()} with timeframe ${barTimeframe}`);
-
-      const bars = await alpaca.getBarsV2(symbol, {
-        start: start.toISOString(),
-        end: end.toISOString(),
-        timeframe: barTimeframe,
-        adjustment: 'raw'
-      });
-
-      // Collect all the bars
-      const allBars = [];
-      for await (const bar of bars) {
-        allBars.push({
-          time: bar.Timestamp,
-          open: bar.OpenPrice,
-          high: bar.HighPrice,
-          low: bar.LowPrice,
-          close: bar.ClosePrice,
-          volume: bar.Volume,
-        });
-      }
-
-      res.json(allBars);
+      const trades = await alpaca.getLatestTrade(symbol);
+      res.json(trades);
     } catch (error: unknown) {
-      console.error('Alpaca API Error:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       res.status(500).json({ error: errorMessage });
     }
