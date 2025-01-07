@@ -33,17 +33,35 @@ export function setupAlpacaRoutes(app: Express) {
         keyId: req.user.alpacaApiKey,
         secretKey: req.user.alpacaSecretKey,
         paper: true,
+        baseUrl: 'https://paper-api.alpaca.markets',
+        dataBaseUrl: 'https://data.alpaca.markets/v2',
       });
 
       const { symbol } = req.params;
       const quote = await alpaca.getLatestQuote(symbol) as unknown as AlpacaQuote;
+      const lastDay = await alpaca.getBarsV2(symbol, {
+        start: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        end: new Date().toISOString(),
+        timeframe: '1Day',
+      });
+
+      // Get the first bar to calculate day change
+      const bars = [];
+      for await (const bar of lastDay) {
+        bars.push(bar);
+      }
+
+      const previousClose = bars[0]?.OpenPrice || quote.AskPrice;
+      const change = quote.AskPrice - previousClose;
+      const changePercent = (change / previousClose) * 100;
+
       res.json({
         symbol,
         price: quote.AskPrice || quote.BidPrice,
         timestamp: quote.Timestamp,
         volume: quote.Volume || 0,
-        change: 0, // We'll need to calculate this from historical data
-        changePercent: 0,
+        change,
+        changePercent,
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -51,7 +69,6 @@ export function setupAlpacaRoutes(app: Express) {
     }
   });
 
-  // Add new endpoint for historical data
   app.get("/api/market/history/:symbol", async (req, res) => {
     try {
       if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {
@@ -62,6 +79,8 @@ export function setupAlpacaRoutes(app: Express) {
         keyId: req.user.alpacaApiKey,
         secretKey: req.user.alpacaSecretKey,
         paper: true,
+        baseUrl: 'https://paper-api.alpaca.markets',
+        dataBaseUrl: 'https://data.alpaca.markets/v2',
       });
 
       const { symbol } = req.params;
@@ -108,6 +127,7 @@ export function setupAlpacaRoutes(app: Express) {
           start: start.toISOString(),
           end: end.toISOString(),
           timeframe: barTimeframe,
+          adjustment: 'raw'
         }
       );
 
@@ -126,6 +146,7 @@ export function setupAlpacaRoutes(app: Express) {
 
       res.json(allBars);
     } catch (error: unknown) {
+      console.error('Alpaca API Error:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       res.status(500).json({ error: errorMessage });
     }
