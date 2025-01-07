@@ -5,6 +5,7 @@ import { setupAlpacaRoutes } from "./alpaca";
 import { setupOpenAIRoutes } from "./openai";
 import { setupQuizRoutes } from "./quiz";
 import { setupStockRoutes } from "./stocks";
+import { setupNewsRoutes } from "./news";
 import session from "express-session";
 import passport from "passport";
 
@@ -26,7 +27,8 @@ export function registerRoutes(app: Express): Server {
   setupAlpacaRoutes(app);
   setupOpenAIRoutes(app);
   setupQuizRoutes(app);
-  setupStockRoutes(app); // Add stock routes
+  setupStockRoutes(app);
+  setupNewsRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

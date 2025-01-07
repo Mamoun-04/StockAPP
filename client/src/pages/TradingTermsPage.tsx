@@ -1,9 +1,16 @@
 import { useUser } from "@/hooks/use-user";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StockIndicators } from "@/components/ui/stock-indicators";
 import { AIAdvisor } from "@/components/ui/ai-advisor";
-import { LineChart, BookOpen, GraduationCap } from "lucide-react";
+import { MarketNews } from "@/components/ui/market-news";
+import { ChevronDown, GraduationCap, Search } from "lucide-react";
 
 export default function TradingTermsPage() {
   const { user } = useUser();
@@ -11,47 +18,47 @@ export default function TradingTermsPage() {
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        <Tabs defaultValue="analysis" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="analysis" className="flex items-center gap-2">
-              <LineChart className="h-4 w-4" />
-              Market Analysis
-            </TabsTrigger>
-            <TabsTrigger value="learn" className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              Trading Terms
-            </TabsTrigger>
-            <TabsTrigger value="quiz" className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4" />
-              Quiz Center
-            </TabsTrigger>
-          </TabsList>
+        {/* Navigation */}
+        <div className="flex items-center gap-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-[200px] justify-between">
+                Research Tools <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[200px]">
+              <DropdownMenuItem className="flex items-center" onSelect={() => window.location.hash = "#market-research"}>
+                <Search className="mr-2 h-4 w-4" />
+                Stock Analysis
+              </DropdownMenuItem>
+              <DropdownMenuItem className="flex items-center" onSelect={() => window.location.hash = "#quizzes"}>
+                <GraduationCap className="mr-2 h-4 w-4" />
+                Trading Quiz
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-          {/* Market Analysis Tab */}
-          <TabsContent value="analysis" className="space-y-6">
-            <AIAdvisor />
-          </TabsContent>
+        {/* Main Content Area */}
+        <div id="main-content">
+          {/* Default View - Market News */}
+          <MarketNews />
+        </div>
 
-          {/* Trading Terms Tab */}
-          <TabsContent value="learn">
-            <Card>
-              <CardContent className="pt-6">
-                <h2 className="text-2xl font-bold mb-4">Trading Terms</h2>
-                {/* Trading terms content goes here */}
-              </CardContent>
-            </Card>
-          </TabsContent>
+        {/* Stock Analysis Section */}
+        <div id="market-research" className="mt-8">
+          <AIAdvisor />
+        </div>
 
-          {/* Quiz Tab */}
-          <TabsContent value="quiz">
-            <Card>
-              <CardContent className="pt-6">
-                <h2 className="text-2xl font-bold mb-4">Quiz Center</h2>
-                {/* Quiz content goes here */}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        {/* Quiz Section */}
+        <div id="quizzes" className="mt-8">
+          <Card>
+            <CardContent className="pt-6">
+              <h2 className="text-2xl font-bold mb-4">Trading Quiz</h2>
+              {/* Quiz content will be restored here */}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
