@@ -47,6 +47,8 @@ export function setupQuizRoutes(app: Express) {
           sectionId: userQuizProgress.sectionId,
           score: userQuizProgress.score,
           bestScore: userQuizProgress.bestScore,
+          totalQuestionsAnswered: userQuizProgress.totalQuestionsAnswered,
+          correctAnswers: userQuizProgress.correctAnswers,
           attemptsCount: userQuizProgress.attemptsCount,
         })
         .from(userQuizProgress)
@@ -126,7 +128,9 @@ export function setupQuizRoutes(app: Express) {
           .where(eq(users.id, req.user!.id))
           .limit(1);
 
-        const newXP = (user?.xp || 0) + (correct ? question.xpReward : 0);
+        // Fixed XP reward of 100 per correct answer
+        const xpReward = correct ? 100 : 0;
+        const newXP = (user?.xp || 0) + xpReward;
         const newLevel = Math.floor(newXP / 1000) + 1;
 
         // Update user XP and level
@@ -151,7 +155,7 @@ export function setupQuizRoutes(app: Express) {
           .limit(1);
 
         if (existingProgress) {
-          const newScore = existingProgress.score + (correct ? question.xpReward : 0);
+          const newScore = existingProgress.score + xpReward;
           await tx
             .update(userQuizProgress)
             .set({
@@ -166,8 +170,8 @@ export function setupQuizRoutes(app: Express) {
           await tx.insert(userQuizProgress).values({
             userId: req.user!.id,
             sectionId: question.sectionId!,
-            score: correct ? question.xpReward : 0,
-            bestScore: correct ? question.xpReward : 0,
+            score: xpReward,
+            bestScore: xpReward,
             totalQuestionsAnswered: 1,
             correctAnswers: correct ? 1 : 0,
             attemptsCount: 1,
@@ -177,7 +181,7 @@ export function setupQuizRoutes(app: Express) {
 
       res.json({
         correct,
-        xpEarned: correct ? question.xpReward : 0,
+        xpEarned: correct ? 100 : 0,
       });
     } catch (error: unknown) {
       console.error('Error submitting answer:', error);

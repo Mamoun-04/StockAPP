@@ -252,13 +252,13 @@ export default function TradingTermsPage() {
                         {sectionProgress && (
                           <div className="flex items-center gap-4 mt-2">
                             <div className="text-sm">
-                              Best Score: {sectionProgress.bestScore} / {totalPossibleXP} XP
+                              Best Score: {sectionProgress.correctAnswers} / {questions.length} questions ({sectionProgress.bestScore} XP)
                             </div>
                             <div className="text-sm">
                               Attempts: {sectionProgress.attemptsCount}
                             </div>
                             <Progress 
-                              value={totalPossibleXP === 0 ? 0 : (sectionProgress.bestScore / totalPossibleXP) * 100} 
+                              value={questions.length > 0 ? (sectionProgress.correctAnswers / questions.length) * 100 : 0} 
                               className="w-24"
                             />
                           </div>
