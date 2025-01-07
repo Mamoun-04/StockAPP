@@ -12,13 +12,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-type TradeFormData = {
-  qty: number;
-  type: "market" | "limit";
-  timeInForce: "day" | "gtc";
-};
+const tradeSchema = z.object({
+  qty: z.number().min(1, "Quantity must be at least 1"),
+  type: z.enum(["market", "limit"]),
+  timeInForce: z.enum(["day", "gtc"]),
+  limitPrice: z.number().optional(),
+});
+
+type TradeFormData = z.infer<typeof tradeSchema>;
 
 type TradePanelProps = {
   symbol: string;
@@ -26,18 +32,67 @@ type TradePanelProps = {
 
 export default function TradePanel({ symbol }: TradePanelProps) {
   const [side, setSide] = useState<"buy" | "sell">("buy");
-  const { quote, isLoading, placeTrade } = useMarketData(symbol);
-  const { register, handleSubmit, reset } = useForm<TradeFormData>();
+  const { quote, positions, account, isLoading, placeTrade, isTradePending } = useMarketData(symbol);
+  const { toast } = useToast();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    watch,
+    setValue,
+    reset
+  } = useForm<TradeFormData>({
+    resolver: zodResolver(tradeSchema),
+    defaultValues: {
+      qty: 1,
+      type: "market",
+      timeInForce: "day"
+    }
+  });
+
+  const orderType = watch("type");
+  const currentPosition = positions?.find(p => p.symbol === symbol);
 
   const onSubmit = async (data: TradeFormData) => {
-    if (!symbol) return;
+    if (!symbol || !quote) return;
 
     try {
+      // Validate buying power for buy orders
+      if (side === "buy") {
+        const totalCost = data.type === "market" 
+          ? quote.price * data.qty 
+          : (data.limitPrice || 0) * data.qty;
+
+        if (totalCost > (account?.buyingPower || 0)) {
+          toast({
+            variant: "destructive",
+            title: "Insufficient Buying Power",
+            description: `You need $${totalCost.toFixed(2)} but only have $${account?.buyingPower.toFixed(2)} available.`
+          });
+          return;
+        }
+      }
+
+      // Validate position size for sell orders
+      if (side === "sell") {
+        const currentQty = currentPosition?.qty || 0;
+        if (data.qty > currentQty) {
+          toast({
+            variant: "destructive",
+            title: "Insufficient Shares",
+            description: `You only have ${currentQty} shares available to sell.`
+          });
+          return;
+        }
+      }
+
       await placeTrade({
         symbol,
         side,
         ...data,
       });
+
       reset();
     } catch (error) {
       console.error("Trade error:", error);
@@ -55,7 +110,14 @@ export default function TradePanel({ symbol }: TradePanelProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Trade {symbol}</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <span>Trade {symbol}</span>
+          {currentPosition && (
+            <span className="text-sm font-normal text-muted-foreground">
+              Current Position: {currentPosition.qty} shares
+            </span>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -64,6 +126,7 @@ export default function TradePanel({ symbol }: TradePanelProps) {
               type="button"
               variant={side === "buy" ? "default" : "outline"}
               onClick={() => setSide("buy")}
+              className={side === "buy" ? "bg-green-500 hover:bg-green-600" : ""}
             >
               Buy
             </Button>
@@ -71,6 +134,7 @@ export default function TradePanel({ symbol }: TradePanelProps) {
               type="button"
               variant={side === "sell" ? "default" : "outline"}
               onClick={() => setSide("sell")}
+              className={side === "sell" ? "bg-red-500 hover:bg-red-600" : ""}
             >
               Sell
             </Button>
@@ -83,13 +147,19 @@ export default function TradePanel({ symbol }: TradePanelProps) {
               type="number"
               min="1"
               step="1"
-              {...register("qty")}
+              {...register("qty", { valueAsNumber: true })}
             />
+            {errors.qty && (
+              <p className="text-sm text-red-500">{errors.qty.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label>Order Type</Label>
-            <Select defaultValue="market" {...register("type")}>
+            <Select 
+              defaultValue="market" 
+              onValueChange={(value) => setValue("type", value as "market" | "limit")}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select order type" />
               </SelectTrigger>
@@ -100,9 +170,28 @@ export default function TradePanel({ symbol }: TradePanelProps) {
             </Select>
           </div>
 
+          {orderType === "limit" && (
+            <div className="space-y-2">
+              <Label htmlFor="limitPrice">Limit Price</Label>
+              <Input
+                id="limitPrice"
+                type="number"
+                step="0.01"
+                min="0.01"
+                {...register("limitPrice", { valueAsNumber: true })}
+              />
+              {errors.limitPrice && (
+                <p className="text-sm text-red-500">{errors.limitPrice.message}</p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Time In Force</Label>
-            <Select defaultValue="day" {...register("timeInForce")}>
+            <Select 
+              defaultValue="day"
+              onValueChange={(value) => setValue("timeInForce", value as "day" | "gtc")}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select time in force" />
               </SelectTrigger>
@@ -113,18 +202,29 @@ export default function TradePanel({ symbol }: TradePanelProps) {
             </Select>
           </div>
 
-          {quote && (
-            <div className="text-sm text-muted-foreground">
-              Current Price: ${quote.price.toFixed(2)}
-            </div>
-          )}
+          <div className="space-y-2 text-sm">
+            {quote && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Current Price:</span>
+                <span>${quote.price.toFixed(2)}</span>
+              </div>
+            )}
+            {account && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Buying Power:</span>
+                <span>${account.buyingPower.toFixed(2)}</span>
+              </div>
+            )}
+          </div>
 
           <Button
             type="submit"
             className="w-full"
-            disabled={isLoading || !quote}
+            disabled={isLoading || !quote || isTradePending}
           >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {(isLoading || isTradePending) && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
             Place {side.toUpperCase()} Order
           </Button>
         </form>

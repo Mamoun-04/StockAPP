@@ -24,6 +24,15 @@ type Account = {
   buyingPower: number;
 };
 
+type TradeOrder = {
+  symbol: string;
+  qty: number;
+  side: 'buy' | 'sell';
+  type: 'market' | 'limit';
+  timeInForce: 'day' | 'gtc';
+  limitPrice?: number;
+};
+
 export function useMarketData(symbol?: string) {
   const { toast } = useToast();
 
@@ -38,7 +47,7 @@ export function useMarketData(symbol?: string) {
       return res.json() as Promise<Quote>;
     },
     enabled: !!symbol,
-    refetchInterval: 5000
+    refetchInterval: 5000 // Refresh every 5 seconds
   });
 
   const positions = useQuery({
@@ -50,7 +59,7 @@ export function useMarketData(symbol?: string) {
       if (!res.ok) throw new Error(await res.text());
       return res.json() as Promise<Position[]>;
     },
-    refetchInterval: 15000
+    refetchInterval: 15000 // Refresh every 15 seconds
   });
 
   const account = useQuery({
@@ -62,31 +71,36 @@ export function useMarketData(symbol?: string) {
       if (!res.ok) throw new Error(await res.text());
       return res.json() as Promise<Account>;
     },
-    refetchInterval: 15000
+    refetchInterval: 15000 // Refresh every 15 seconds
   });
 
   const tradeMutation = useMutation({
-    mutationFn: async (order: {
-      symbol: string;
-      qty: number;
-      side: 'buy' | 'sell';
-      type: 'market' | 'limit';
-      timeInForce: 'day' | 'gtc';
-    }) => {
+    mutationFn: async (order: TradeOrder) => {
       const res = await fetch('/api/trade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(order)
       });
-      if (!res.ok) throw new Error(await res.text());
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText);
+      }
+
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast({
-        title: "Order Placed",
-        description: "Your trade order has been successfully placed"
+        title: "Order Placed Successfully",
+        description: `${variables.side.toUpperCase()} order for ${variables.qty} shares of ${variables.symbol} has been placed.`,
+        variant: "default"
       });
+
+      // Invalidate queries to refresh data
+      quote.refetch();
+      positions.refetch();
+      account.refetch();
     },
     onError: (error) => {
       toast({
@@ -103,6 +117,7 @@ export function useMarketData(symbol?: string) {
     account: account.data,
     isLoading: quote.isLoading || positions.isLoading || account.isLoading,
     error: quote.error || positions.error || account.error,
-    placeTrade: tradeMutation.mutateAsync
+    placeTrade: tradeMutation.mutateAsync,
+    isTradePending: tradeMutation.isPending
   };
 }
