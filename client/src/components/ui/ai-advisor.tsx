@@ -50,25 +50,57 @@ export function AIAdvisor() {
   // Helper to extract key terms from the advice text
   const generateSuggestedQuestions = (advice: string): string[] => {
     const commonTerms = [
-      ["profit margin", "What is net profit?", "How to calculate gross profit?", "What's a good profit margin?"],
-      ["revenue", "What is gross revenue?", "How to increase revenue?", "What's the difference between revenue and profit?"],
-      ["investment", "What are diversification strategies?", "How to assess investment risk?", "What's dollar-cost averaging?"],
-      ["stock market", "What are stock indices?", "How do dividends work?", "What is market capitalization?"],
-      ["trading volume", "What is liquidity?", "How does volume affect price?", "What is average daily trading volume?"],
+      [
+        "profit margin",
+        ["What is net profit margin?", "How to improve profit margins?", "What's the difference between gross and net margins?"],
+        ["revenue", "cost", "net", "gross"]
+      ],
+      [
+        "revenue",
+        ["What affects revenue growth?", "How to calculate revenue projections?", "What's the difference between revenue and income?"],
+        ["sales", "income", "earnings"]
+      ],
+      [
+        "investment",
+        ["What is risk management in investing?", "How to build a diversified portfolio?", "What are different investment strategies?"],
+        ["portfolio", "risk", "return", "strategy"]
+      ],
+      [
+        "technical analysis",
+        ["What are support and resistance levels?", "How to use moving averages?", "What is relative strength index (RSI)?"],
+        ["indicator", "chart", "pattern", "trend"]
+      ],
+      [
+        "fundamental analysis",
+        ["How to read financial statements?", "What are key financial ratios?", "How to value a company?"],
+        ["valuation", "ratio", "statement", "earnings"]
+      ],
     ];
 
-    // Find matching terms and return their questions
-    for (const [term, ...questions] of commonTerms) {
-      if (advice.toLowerCase().includes(term.toLowerCase())) {
-        return questions;
+    // Extract key terms from the advice text
+    const lowerAdvice = advice.toLowerCase();
+    let suggestedQuestions: string[] = [];
+
+    // Find matching terms and their related terms
+    for (const [mainTerm, questions, relatedTerms] of commonTerms) {
+      if (
+        lowerAdvice.includes(mainTerm as string) ||
+        (relatedTerms as string[]).some(term => lowerAdvice.includes(term))
+      ) {
+        suggestedQuestions.push(...questions as string[]);
       }
     }
 
-    // Default questions if no specific terms are found
+    // If we found relevant questions, return the top 3
+    if (suggestedQuestions.length > 0) {
+      return suggestedQuestions.slice(0, 3);
+    }
+
+    // Default questions based on the broader topic of trading and investing
     return [
-      "What are the key market indicators?",
-      "How to manage trading risk?",
-      "What is fundamental analysis?",
+      "What are common trading strategies?",
+      "How to analyze market trends?",
+      "What are key risk management techniques?",
     ];
   };
 
