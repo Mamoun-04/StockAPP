@@ -17,9 +17,15 @@ export function setupQuizRoutes(app: Express) {
         return res.status(401).send("Not logged in");
       }
 
-      const questions = await db.query.quizQuestions.findMany({
-        orderBy: quizQuestions.difficulty,
-      });
+      const questions = await db.select({
+        id: quizQuestions.id,
+        term: quizQuestions.term,
+        question: quizQuestions.question,
+        correctAnswer: quizQuestions.correctAnswer,
+        wrongAnswers: quizQuestions.wrongAnswers,
+        difficulty: quizQuestions.difficulty,
+        xpReward: quizQuestions.xpReward,
+      }).from(quizQuestions);
 
       res.json(questions);
     } catch (error: unknown) {
@@ -37,9 +43,7 @@ export function setupQuizRoutes(app: Express) {
 
       const { questionId, answer } = req.body;
 
-      const question = await db.query.quizQuestions.findFirst({
-        where: eq(quizQuestions.id, questionId),
-      });
+      const [question] = await db.select().from(quizQuestions).where(eq(quizQuestions.id, questionId)).limit(1);
 
       if (!question) {
         return res.status(404).send("Question not found");
@@ -57,7 +61,8 @@ export function setupQuizRoutes(app: Express) {
       if (correct) {
         // Award XP and check for level up
         await db.transaction(async (tx) => {
-          const newXP = req.user.xp + question.xpReward;
+          const [user] = await tx.select().from(users).where(eq(users.id, req.user!.id)).limit(1);
+          const newXP = (user?.xp || 0) + question.xpReward;
           const newLevel = Math.floor(newXP / 1000) + 1;
 
           await tx
@@ -66,44 +71,51 @@ export function setupQuizRoutes(app: Express) {
               xp: newXP,
               level: newLevel,
             })
-            .where(eq(users.id, req.user.id));
+            .where(eq(users.id, req.user!.id));
 
           // Check for quiz-related achievements
-          const quizAchievements = await tx.query.achievements.findMany({
-            where: eq(achievements.requirement.type, "quiz_completed"),
-          });
+          const quizAchievements = await tx.select().from(achievements)
+            .where(eq(achievements.requirement['type'].type, 'quiz_completed'));
 
           for (const achievement of quizAchievements) {
-            const correctAnswers = await tx.query.userQuizAttempts.count({
-              where: and(
-                eq(userQuizAttempts.userId, req.user.id),
-                eq(userQuizAttempts.correct, true)
-              ),
-            });
+            const correctAnswers = await tx.select()
+              .from(userQuizAttempts)
+              .where(
+                and(
+                  eq(userQuizAttempts.userId, req.user!.id),
+                  eq(userQuizAttempts.correct, true)
+                )
+              ).then(rows => rows.length);
 
-            if (
-              correctAnswers >= achievement.requirement.value &&
-              !(await tx.query.userAchievements.findFirst({
-                where: and(
-                  eq(userAchievements.userId, req.user.id),
-                  eq(userAchievements.achievementId, achievement.id)
-                ),
-              }))
-            ) {
-              // Award achievement
-              await tx.insert(userAchievements).values({
-                userId: req.user.id,
-                achievementId: achievement.id,
-              });
+            const requirement = achievement.requirement as { type: string; value: number };
 
-              // Award achievement XP
-              await tx
-                .update(users)
-                .set({
-                  xp: newXP + achievement.xpReward,
-                  level: Math.floor((newXP + achievement.xpReward) / 1000) + 1,
-                })
-                .where(eq(users.id, req.user.id));
+            if (correctAnswers >= requirement.value) {
+              const existingAchievement = await tx.select()
+                .from(userAchievements)
+                .where(
+                  and(
+                    eq(userAchievements.userId, req.user!.id),
+                    eq(userAchievements.achievementId, achievement.id)
+                  )
+                )
+                .limit(1);
+
+              if (!existingAchievement.length) {
+                // Award achievement
+                await tx.insert(userAchievements).values({
+                  userId: req.user!.id,
+                  achievementId: achievement.id,
+                });
+
+                // Award achievement XP
+                await tx
+                  .update(users)
+                  .set({
+                    xp: newXP + achievement.xpReward,
+                    level: Math.floor((newXP + achievement.xpReward) / 1000) + 1,
+                  })
+                  .where(eq(users.id, req.user!.id));
+              }
             }
           }
         });
