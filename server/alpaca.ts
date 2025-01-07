@@ -102,24 +102,29 @@ export function setupAlpacaRoutes(app: Express) {
           barTimeframe = "1Min";
       }
 
-      const bars = await alpaca.getBars({
+      const bars = await alpaca.getBarsV2(
         symbol,
-        start: start.toISOString(),
-        end: end.toISOString(),
-        timeframe: barTimeframe,
-      });
+        {
+          start: start.toISOString(),
+          end: end.toISOString(),
+          timeframe: barTimeframe,
+        }
+      );
 
-      // Transform bar data for the chart
-      const history = bars.map((bar: any) => ({
-        time: new Date(bar.Timestamp).toISOString(),
-        open: bar.OpenPrice,
-        high: bar.HighPrice,
-        low: bar.LowPrice,
-        close: bar.ClosePrice,
-        volume: bar.Volume,
-      }));
+      // Collect all the bars
+      const allBars = [];
+      for await (const bar of bars) {
+        allBars.push({
+          time: bar.Timestamp,
+          open: bar.OpenPrice,
+          high: bar.HighPrice,
+          low: bar.LowPrice,
+          close: bar.ClosePrice,
+          volume: bar.Volume,
+        });
+      }
 
-      res.json(history);
+      res.json(allBars);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       res.status(500).json({ error: errorMessage });
