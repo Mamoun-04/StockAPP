@@ -4,6 +4,7 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/DashboardPage";
+import LearningPage from "./pages/LearningPage";
 
 function App() {
   const { user, isLoading } = useUser();
@@ -23,6 +24,7 @@ function App() {
   return (
     <Switch>
       <Route path="/" component={DashboardPage} />
+      <Route path="/learn" component={LearningPage} />
       <Route component={NotFound} />
     </Switch>
   );

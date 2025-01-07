@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/use-user";
@@ -8,7 +9,7 @@ import AIChat from "@/components/dashboard/AIChat";
 import StockSearch from "@/components/dashboard/StockSearch";
 import TradePanel from "@/components/dashboard/TradePanel";
 import EducationPanel from "@/components/dashboard/EducationPanel";
-import { LogOut } from "lucide-react";
+import { LogOut, GraduationCap } from "lucide-react";
 
 export default function DashboardPage() {
   const { user, logout } = useUser();
@@ -24,8 +25,14 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">
-                Welcome, {user?.username}
+                Level {user?.level} ({user?.xp} XP)
               </span>
+              <Link href="/learn">
+                <Button variant="outline" size="sm">
+                  <GraduationCap className="h-4 w-4 mr-2" />
+                  Learning Path
+                </Button>
+              </Link>
               <Button variant="ghost" size="sm" onClick={() => logout()}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, decimal, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, decimal, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 export const users = pgTable("users", {
@@ -8,6 +8,8 @@ export const users = pgTable("users", {
   alpacaApiKey: text("alpaca_api_key"),
   alpacaSecretKey: text("alpaca_secret_key"),
   createdAt: timestamp("created_at").defaultNow(),
+  xp: integer("xp").default(0).notNull(),
+  level: integer("level").default(1).notNull(),
 });
 
 export const portfolios = pgTable("portfolios", {
@@ -26,6 +28,43 @@ export const watchlists = pgTable("watchlists", {
   addedAt: timestamp("added_at").defaultNow(),
 });
 
+export const lessons = pgTable("lessons", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  content: text("content").notNull(),
+  difficulty: text("difficulty").notNull(), // beginner, intermediate, advanced
+  xpReward: integer("xp_reward").notNull(),
+  prerequisites: integer("prerequisites").array(), // Array of lesson IDs required before this one
+  order: integer("order").notNull(), // Sequence in the learning path
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const userProgress = pgTable("user_progress", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  lessonId: integer("lesson_id").references(() => lessons.id),
+  completed: boolean("completed").default(false),
+  score: integer("score"), // Optional quiz score
+  completedAt: timestamp("completed_at"),
+});
+
+export const achievements = pgTable("achievements", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  requirement: jsonb("requirement").notNull(), // JSON object with achievement criteria
+  xpReward: integer("xp_reward").notNull(),
+  icon: text("icon").notNull(), // Icon identifier
+});
+
+export const userAchievements = pgTable("user_achievements", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  achievementId: integer("achievement_id").references(() => achievements.id),
+  unlockedAt: timestamp("unlocked_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 
@@ -33,3 +72,6 @@ export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
 export type Portfolio = typeof portfolios.$inferSelect;
 export type Watchlist = typeof watchlists.$inferSelect;
+export type Lesson = typeof lessons.$inferSelect;
+export type UserProgress = typeof userProgress.$inferSelect;
+export type Achievement = typeof achievements.$inferSelect;
