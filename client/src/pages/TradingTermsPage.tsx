@@ -205,6 +205,12 @@ export default function TradingTermsPage() {
     return Math.floor(sectionProgress.bestScore / 500) + 1;
   };
 
+  const filteredTerms = tradingTerms.filter(
+    (term) =>
+      term.term.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      term.definition.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-4xl mx-auto space-y-6">
