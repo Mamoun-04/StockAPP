@@ -8,8 +8,7 @@ import Portfolio from "@/components/dashboard/Portfolio";
 import AIChat from "@/components/dashboard/AIChat";
 import StockSearch from "@/components/dashboard/StockSearch";
 import TradePanel from "@/components/dashboard/TradePanel";
-import EducationPanel from "@/components/dashboard/EducationPanel";
-import { LogOut, GraduationCap } from "lucide-react";
+import { LogOut, Book } from "lucide-react";
 
 export default function DashboardPage() {
   const { user, logout } = useUser();
@@ -24,13 +23,10 @@ export default function DashboardPage() {
               <h1 className="text-xl font-bold">Trading for Beginners</h1>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">
-                Level {user?.level} ({user?.xp} XP)
-              </span>
-              <Link href="/learn">
+              <Link href="/terms">
                 <Button variant="outline" size="sm">
-                  <GraduationCap className="h-4 w-4 mr-2" />
-                  Learning Path
+                  <Book className="h-4 w-4 mr-2" />
+                  Trading Terms
                 </Button>
               </Link>
               <Button variant="ghost" size="sm" onClick={() => logout()}>
@@ -65,9 +61,6 @@ export default function DashboardPage() {
           <div className="col-span-12 lg:col-span-4 space-y-6">
             <Card className="p-6">
               <AIChat symbol={selectedSymbol} />
-            </Card>
-            <Card className="p-6">
-              <EducationPanel />
             </Card>
           </div>
         </div>
