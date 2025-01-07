@@ -51,6 +51,81 @@ export function setupAlpacaRoutes(app: Express) {
     }
   });
 
+  // Add new endpoint for historical data
+  app.get("/api/market/history/:symbol", async (req, res) => {
+    try {
+      if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {
+        return res.status(400).send("Alpaca API credentials not configured");
+      }
+
+      const alpaca = new Alpaca({
+        keyId: req.user.alpacaApiKey,
+        secretKey: req.user.alpacaSecretKey,
+        paper: true,
+      });
+
+      const { symbol } = req.params;
+      const { timeframe = "1D" } = req.query;
+
+      // Calculate start and end dates based on timeframe
+      const end = new Date();
+      let start = new Date();
+      let barTimeframe = "1Min";
+
+      switch (timeframe) {
+        case "1D":
+          start.setDate(end.getDate() - 1);
+          barTimeframe = "1Min";
+          break;
+        case "1W":
+          start.setDate(end.getDate() - 7);
+          barTimeframe = "5Min";
+          break;
+        case "1M":
+          start.setMonth(end.getMonth() - 1);
+          barTimeframe = "15Min";
+          break;
+        case "3M":
+          start.setMonth(end.getMonth() - 3);
+          barTimeframe = "1Hour";
+          break;
+        case "YTD":
+          start = new Date(end.getFullYear(), 0, 1); // January 1st of current year
+          barTimeframe = "1Day";
+          break;
+        case "1Y":
+          start.setFullYear(end.getFullYear() - 1);
+          barTimeframe = "1Day";
+          break;
+        default:
+          start.setDate(end.getDate() - 1);
+          barTimeframe = "1Min";
+      }
+
+      const bars = await alpaca.getBars({
+        symbol,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        timeframe: barTimeframe,
+      });
+
+      // Transform bar data for the chart
+      const history = bars.map((bar: any) => ({
+        time: new Date(bar.Timestamp).toISOString(),
+        open: bar.OpenPrice,
+        high: bar.HighPrice,
+        low: bar.LowPrice,
+        close: bar.ClosePrice,
+        volume: bar.Volume,
+      }));
+
+      res.json(history);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
   app.get("/api/market/trades/:symbol", async (req, res) => {
     try {
       if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {

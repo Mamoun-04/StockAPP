@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   LineChart,
   Line,
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { format } from "date-fns";
 
 type StockChartProps = {
   symbol: string;
@@ -36,59 +37,68 @@ interface PriceData {
   high: number;
   low: number;
   close: number;
+  volume: number;
   wickHeight?: number;
   bodyHeight?: number;
   isPositive?: boolean;
 }
 
 export default function StockChart({ symbol }: StockChartProps) {
-  const { quote, isLoading } = useMarketData(symbol);
-  const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1D");
   const [chartType, setChartType] = useState<ChartType>("line");
-
-  useEffect(() => {
-    if (quote) {
-      setPriceHistory((prev) => {
-        const newDataPoint: PriceData = {
-          time: new Date().toLocaleTimeString(),
-          price: quote.price,
-          open: quote.price - 1, // Placeholder data for demo
-          high: quote.price + 0.5,
-          low: quote.price - 1.5,
-          close: quote.price,
-        };
-
-        // Calculate heights for candlestick visualization
-        newDataPoint.wickHeight = newDataPoint.high - newDataPoint.low;
-        newDataPoint.bodyHeight = Math.abs(newDataPoint.close - newDataPoint.open);
-        newDataPoint.isPositive = newDataPoint.close >= newDataPoint.open;
-
-        const newHistory = [...prev, newDataPoint];
-        if (newHistory.length > 100) {
-          return newHistory.slice(-100);
-        }
-        return newHistory;
-      });
-    }
-  }, [quote]);
+  const { quote, historicalData, isLoading } = useMarketData(symbol, timeFrame);
 
   if (isLoading) {
     return <Skeleton className="w-full h-[400px]" />;
   }
 
-  if (!quote) {
+  if (!quote || !historicalData) {
     return null;
   }
+
+  // Process historical data for visualization
+  const processedData: PriceData[] = historicalData.map((item) => {
+    const data: PriceData = {
+      time: format(new Date(item.time), getTimeFormat(timeFrame)),
+      price: item.close,
+      open: item.open,
+      high: item.high,
+      low: item.low,
+      close: item.close,
+      volume: item.volume,
+      wickHeight: item.high - item.low,
+      bodyHeight: Math.abs(item.close - item.open),
+      isPositive: item.close >= item.open,
+    };
+    return data;
+  });
 
   const priceChange = quote.change;
   const priceChangePercent = quote.changePercent;
   const isPositive = priceChange >= 0;
 
+  // Helper function to get time format based on timeframe
+  function getTimeFormat(timeframe: TimeFrame): string {
+    switch (timeframe) {
+      case "1D":
+        return "HH:mm";
+      case "1W":
+        return "EEE HH:mm";
+      case "1M":
+      case "3M":
+        return "MMM dd";
+      case "YTD":
+      case "1Y":
+        return "MMM dd yyyy";
+      default:
+        return "HH:mm";
+    }
+  }
+
   const renderChart = () => {
     if (chartType === "line") {
       return (
-        <LineChart data={priceHistory}>
+        <LineChart data={processedData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
             dataKey="time"
@@ -107,7 +117,7 @@ export default function StockChart({ symbol }: StockChartProps) {
           />
           <Line
             type="monotone"
-            dataKey="price"
+            dataKey="close"
             stroke={isPositive ? "#22c55e" : "#ef4444"}
             dot={false}
             strokeWidth={2}
@@ -116,7 +126,7 @@ export default function StockChart({ symbol }: StockChartProps) {
       );
     } else {
       return (
-        <ComposedChart data={priceHistory}>
+        <ComposedChart data={processedData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
             dataKey="time"
