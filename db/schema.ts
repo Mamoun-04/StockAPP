@@ -65,8 +65,28 @@ export const userAchievements = pgTable("user_achievements", {
   unlockedAt: timestamp("unlocked_at").defaultNow(),
 });
 
+export const quizQuestions = pgTable("quiz_questions", {
+  id: serial("id").primaryKey(),
+  term: text("term").notNull(),
+  question: text("question").notNull(),
+  correctAnswer: text("correct_answer").notNull(),
+  wrongAnswers: text("wrong_answers").array().notNull(),
+  difficulty: text("difficulty").notNull(), // easy, medium, hard
+  xpReward: integer("xp_reward").notNull(),
+});
+
+export const userQuizAttempts = pgTable("user_quiz_attempts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  questionId: integer("question_id").references(() => quizQuestions.id),
+  correct: boolean("correct").notNull(),
+  attemptedAt: timestamp("attempted_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
+export const insertQuizQuestionSchema = createInsertSchema(quizQuestions);
+export const selectQuizQuestionSchema = createSelectSchema(quizQuestions);
 
 export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
@@ -75,3 +95,6 @@ export type Watchlist = typeof watchlists.$inferSelect;
 export type Lesson = typeof lessons.$inferSelect;
 export type UserProgress = typeof userProgress.$inferSelect;
 export type Achievement = typeof achievements.$inferSelect;
+export type UserAchievement = typeof userAchievements.$inferSelect;
+export type QuizQuestion = typeof quizQuestions.$inferSelect;
+export type UserQuizAttempt = typeof userQuizAttempts.$inferSelect;
