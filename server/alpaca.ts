@@ -42,7 +42,7 @@ export function setupAlpacaRoutes(app: Express) {
         price: quote.AskPrice || quote.BidPrice,
         timestamp: quote.Timestamp,
         volume: quote.Volume || 0,
-        change: 0,
+        change: 0, // We'll need to calculate this from historical data
         changePercent: 0,
       });
     } catch (error: unknown) {
@@ -102,29 +102,24 @@ export function setupAlpacaRoutes(app: Express) {
           barTimeframe = "1Min";
       }
 
-      const resp = await alpaca.getBarsV2(
+      const bars = await alpaca.getBars({
         symbol,
-        {
-          start: start.toISOString(),
-          end: end.toISOString(),
-          timeframe: barTimeframe,
-          adjustment: 'all'
-        }
-      );
+        start: start.toISOString(),
+        end: end.toISOString(),
+        timeframe: barTimeframe,
+      });
 
-      const bars = [];
-      for await (const bar of resp) {
-        bars.push({
-          time: bar.Timestamp,
-          open: bar.OpenPrice,
-          high: bar.HighPrice,
-          low: bar.LowPrice,
-          close: bar.ClosePrice,
-          volume: bar.Volume,
-        });
-      }
+      // Transform bar data for the chart
+      const history = bars.map((bar: any) => ({
+        time: new Date(bar.Timestamp).toISOString(),
+        open: bar.OpenPrice,
+        high: bar.HighPrice,
+        low: bar.LowPrice,
+        close: bar.ClosePrice,
+        volume: bar.Volume,
+      }));
 
-      res.json(bars);
+      res.json(history);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       res.status(500).json({ error: errorMessage });

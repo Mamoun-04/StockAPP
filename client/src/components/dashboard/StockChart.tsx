@@ -152,11 +152,13 @@ export default function StockChart({ symbol }: StockChartProps) {
             barSize={2}
           />
           {/* Candlestick bodies */}
-          <Bar
+          <Area
+            type="step"
             dataKey="bodyHeight"
-            fill={(data: any) => (data.isPositive ? "#22c55e" : "#ef4444")}
+            fill={(data: PriceData) =>
+              data.isPositive ? "#22c55e" : "#ef4444"
+            }
             stroke="none"
-            yAxisId={0}
           />
         </ComposedChart>
       );
