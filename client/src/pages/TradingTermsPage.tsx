@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -80,6 +80,7 @@ export default function TradingTermsPage() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
+  const [questionAnswers, setQuestionAnswers] = useState<string[]>([]);
 
   // Fetch quiz sections with user progress
   const { data: sections = [] } = useQuery<QuizSection[]>({
@@ -98,6 +99,14 @@ export default function TradingTermsPage() {
     queryKey: ["/api/quiz/questions", selectedSection?.id],
     enabled: !!selectedSection?.id,
   });
+
+  // Set up answers in a fixed order when question changes
+  useEffect(() => {
+    if (currentQuestion) {
+      const answers = [currentQuestion.correctAnswer, ...currentQuestion.wrongAnswers];
+      setQuestionAnswers(answers);
+    }
+  }, [currentQuestion]);
 
   const submitAnswerMutation = useMutation({
     mutationFn: async (answer: { questionId: number; answer: string }) => {
@@ -133,16 +142,12 @@ export default function TradingTermsPage() {
     },
   });
 
-  const filteredTerms = tradingTerms.filter(
-    (term) =>
-      term.term.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      term.definition.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   const startQuiz = (section: QuizSection) => {
     setSelectedSection(section);
     if (questions.length > 0) {
-      setCurrentQuestion(questions[0]);
+      const firstQuestion = questions[0];
+      setCurrentQuestion(firstQuestion);
+      setQuestionAnswers([firstQuestion.correctAnswer, ...firstQuestion.wrongAnswers]);
       setQuizScore(0);
       setSelectedAnswer(null);
       setIsAnswered(false);
@@ -167,7 +172,9 @@ export default function TradingTermsPage() {
       setTimeout(() => {
         const currentIndex = questions.findIndex((q) => q.id === currentQuestion.id);
         if (currentIndex < questions.length - 1) {
-          setCurrentQuestion(questions[currentIndex + 1]);
+          const nextQuestion = questions[currentIndex + 1];
+          setCurrentQuestion(nextQuestion);
+          setQuestionAnswers([nextQuestion.correctAnswer, ...nextQuestion.wrongAnswers]);
           setSelectedAnswer(null);
           setIsAnswered(false);
         } else {
@@ -192,6 +199,12 @@ export default function TradingTermsPage() {
     }
   };
 
+  const getCategoryLevel = (sectionId: number) => {
+    const sectionProgress = progress.find(p => p.sectionId === sectionId);
+    if (!sectionProgress) return 1;
+    return Math.floor(sectionProgress.bestScore / 500) + 1;
+  };
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -204,11 +217,17 @@ export default function TradingTermsPage() {
             <div className="grid gap-4">
               {sections.map((section) => {
                 const sectionProgress = progress.find(p => p.sectionId === section.id);
+                const categoryLevel = getCategoryLevel(section.id);
                 return (
                   <Card key={section.id} className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <h3 className="font-medium">{section.title}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium">{section.title}</h3>
+                          <Badge variant="outline" className="bg-blue-100">
+                            Level {categoryLevel}
+                          </Badge>
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           {section.description}
                         </p>
@@ -220,6 +239,10 @@ export default function TradingTermsPage() {
                             <div className="text-sm">
                               Attempts: {sectionProgress.attemptsCount}
                             </div>
+                            <Progress 
+                              value={(sectionProgress.bestScore % 500) / 5} 
+                              className="w-24"
+                            />
                           </div>
                         )}
                       </div>
@@ -260,39 +283,34 @@ export default function TradingTermsPage() {
                                 <div className="space-y-4">
                                   <p className="font-medium">{currentQuestion.question}</p>
                                   <div className="grid grid-cols-1 gap-2">
-                                    {[
-                                      currentQuestion.correctAnswer,
-                                      ...currentQuestion.wrongAnswers,
-                                    ]
-                                      .sort(() => Math.random() - 0.5)
-                                      .map((answer) => (
-                                        <Button
-                                          key={answer}
-                                          variant={
-                                            isAnswered
-                                              ? answer === currentQuestion.correctAnswer
-                                                ? "default"
-                                                : "secondary"
-                                              : selectedAnswer === answer
+                                    {questionAnswers.map((answer) => (
+                                      <Button
+                                        key={answer}
+                                        variant={
+                                          isAnswered
+                                            ? answer === currentQuestion.correctAnswer
                                               ? "default"
                                               : "secondary"
-                                          }
-                                          className={
-                                            isAnswered &&
-                                            answer === currentQuestion.correctAnswer
-                                              ? "bg-green-500 hover:bg-green-600"
-                                              : isAnswered &&
-                                                answer === selectedAnswer &&
-                                                answer !== currentQuestion.correctAnswer
-                                              ? "bg-red-500 hover:bg-red-600"
-                                              : ""
-                                          }
-                                          onClick={() => !isAnswered && setSelectedAnswer(answer)}
-                                          disabled={isAnswered}
-                                        >
-                                          {answer}
-                                        </Button>
-                                      ))}
+                                            : selectedAnswer === answer
+                                            ? "default"
+                                            : "secondary"
+                                        }
+                                        className={
+                                          isAnswered &&
+                                          answer === currentQuestion.correctAnswer
+                                            ? "bg-green-500 hover:bg-green-600"
+                                            : isAnswered &&
+                                              answer === selectedAnswer &&
+                                              answer !== currentQuestion.correctAnswer
+                                            ? "bg-red-500 hover:bg-red-600"
+                                            : ""
+                                        }
+                                        onClick={() => !isAnswered && setSelectedAnswer(answer)}
+                                        disabled={isAnswered}
+                                      >
+                                        {answer}
+                                      </Button>
+                                    ))}
                                   </div>
                                   {!isAnswered && (
                                     <Button
