@@ -13,7 +13,7 @@ export function setupLearningRoutes(app: Express) {
   // Get all lessons with progress for current user
   app.get("/api/lessons", async (req, res) => {
     try {
-      if (!req.user) {
+      if (!req.user?.id) {
         return res.status(401).send("Not logged in");
       }
 
@@ -36,7 +36,7 @@ export function setupLearningRoutes(app: Express) {
   // Get a specific lesson by ID
   app.get("/api/lessons/:id", async (req, res) => {
     try {
-      if (!req.user) {
+      if (!req.user?.id) {
         return res.status(401).send("Not logged in");
       }
 
@@ -59,7 +59,7 @@ export function setupLearningRoutes(app: Express) {
   // Mark lesson as completed and award XP
   app.post("/api/lessons/:id/complete", async (req, res) => {
     try {
-      if (!req.user) {
+      if (!req.user?.id) {
         return res.status(401).send("Not logged in");
       }
 
@@ -109,15 +109,14 @@ export function setupLearningRoutes(app: Express) {
         }
 
         // Award XP to user
-        const [updatedUser] = await tx
+        await tx
           .update(users)
           .set({
             xp: req.user.xp + lesson.xpReward,
-            // Level up every 1000 XP
             level: Math.floor((req.user.xp + lesson.xpReward) / 1000) + 1,
           })
-          .where(eq(users.id, req.user.id))
-          .returning();
+          .where(eq(users.id, req.user.id));
+
 
         // Check for new achievements
         const potentialAchievements = await tx.query.achievements.findMany({
@@ -149,11 +148,11 @@ export function setupLearningRoutes(app: Express) {
               break;
 
             case "xp_reached":
-              isUnlocked = updatedUser.xp >= requirement.value;
+              isUnlocked = req.user.xp + lesson.xpReward >= requirement.value; //Using updated XP here.
               break;
 
             case "level_reached":
-              isUnlocked = updatedUser.level >= requirement.value;
+              isUnlocked = Math.floor((req.user.xp + lesson.xpReward) / 1000) + 1 >= requirement.value; //Using updated level here.
               break;
           }
 
@@ -167,8 +166,8 @@ export function setupLearningRoutes(app: Express) {
             await tx
               .update(users)
               .set({
-                xp: updatedUser.xp + achievement.xpReward,
-                level: Math.floor((updatedUser.xp + achievement.xpReward) / 1000) + 1,
+                xp: req.user.xp + lesson.xpReward + achievement.xpReward,
+                level: Math.floor((req.user.xp + lesson.xpReward + achievement.xpReward) / 1000) + 1,
               })
               .where(eq(users.id, req.user.id));
           }
@@ -185,11 +184,11 @@ export function setupLearningRoutes(app: Express) {
   // Get user's achievements
   app.get("/api/achievements", async (req, res) => {
     try {
-      if (!req.user) {
+      if (!req.user?.id) {
         return res.status(401).send("Not logged in");
       }
 
-      const achievements = await db.query.achievements.findMany({
+      const userAchievementsList = await db.query.achievements.findMany({
         with: {
           userAchievements: {
             where: eq(userAchievements.userId, req.user.id),
@@ -197,7 +196,7 @@ export function setupLearningRoutes(app: Express) {
         },
       });
 
-      res.json(achievements);
+      res.json(userAchievementsList);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: errorMessage });
