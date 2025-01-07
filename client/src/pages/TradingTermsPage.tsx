@@ -15,6 +15,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { AIAdvisor } from "@/components/ui/ai-advisor";
 
 // Common trading terms with their definitions
 const tradingTerms = [
@@ -212,7 +213,7 @@ export default function TradingTermsPage() {
   const getCategoryLevel = (sectionId: number) => {
     const sectionProgress = progress.find(p => p.sectionId === sectionId);
     if (!sectionProgress) return 1;
-    return Math.floor(sectionProgress.bestScore / 500) + 1;
+    return Math.floor(sectionProgress.correctAnswers / 5) + 1;
   };
 
   const filteredTerms = tradingTerms.filter(
@@ -224,6 +225,9 @@ export default function TradingTermsPage() {
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* AI Advisor Section */}
+        <AIAdvisor />
+
         {/* Quiz Sections */}
         <Card>
           <CardHeader>
@@ -234,7 +238,6 @@ export default function TradingTermsPage() {
               {sections.map((section) => {
                 const sectionProgress = progress.find(p => p.sectionId === section.id);
                 const categoryLevel = getCategoryLevel(section.id);
-                const totalPossibleXP = questions?.reduce((sum, q) => sum + q.xpReward, 0) || 0; // Handle undefined questions
 
                 return (
                   <Card key={section.id} className="p-4">
@@ -252,13 +255,13 @@ export default function TradingTermsPage() {
                         {sectionProgress && (
                           <div className="flex items-center gap-4 mt-2">
                             <div className="text-sm">
-                              Best Score: {sectionProgress.correctAnswers} / {questions.length} questions ({sectionProgress.bestScore} XP)
+                              Score: {sectionProgress.correctAnswers} / {questions.length} questions
                             </div>
                             <div className="text-sm">
                               Attempts: {sectionProgress.attemptsCount}
                             </div>
-                            <Progress 
-                              value={questions.length > 0 ? (sectionProgress.correctAnswers / questions.length) * 100 : 0} 
+                            <Progress
+                              value={questions.length > 0 ? (sectionProgress.correctAnswers / questions.length) * 100 : 0}
                               className="w-24"
                             />
                           </div>
@@ -278,9 +281,6 @@ export default function TradingTermsPage() {
                             </Button>
                           </DialogTrigger>
                           <DialogContent className="sm:max-w-[425px]">
-                            <DialogHeader>
-                              <DialogTitle>{section.title} Quiz</DialogTitle>
-                            </DialogHeader>
                             {currentQuestion ? (
                               <div className="space-y-4">
                                 <Progress

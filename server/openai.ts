@@ -24,9 +24,15 @@ export function setupOpenAIRoutes(app: Express) {
         response_format: { type: "json_object" },
       });
 
-      res.json(JSON.parse(response.choices[0].message.content));
+      const content = response.choices[0].message.content;
+      if (!content) {
+        throw new Error("No content in response");
+      }
+
+      res.json(JSON.parse(content));
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: errorMessage });
     }
   });
 
@@ -49,9 +55,15 @@ export function setupOpenAIRoutes(app: Express) {
         response_format: { type: "json_object" },
       });
 
-      res.json(JSON.parse(response.choices[0].message.content));
+      const content = response.choices[0].message.content;
+      if (!content) {
+        throw new Error("No content in response");
+      }
+
+      res.json(JSON.parse(content));
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: errorMessage });
     }
   });
 
@@ -72,9 +84,52 @@ export function setupOpenAIRoutes(app: Express) {
         response_format: { type: "json_object" },
       });
 
-      res.json(JSON.parse(response.choices[0].message.content));
+      const content = response.choices[0].message.content;
+      if (!content) {
+        throw new Error("No content in response");
+      }
+
+      res.json(JSON.parse(content));
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
+  // New AI advisor endpoint
+  app.post("/api/ai/advisor", async (req, res) => {
+    try {
+      const { question, context } = req.body;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert trading advisor assistant. Your goal is to help users make informed trading decisions by:
+            1. Explaining concepts in simple terms
+            2. Providing balanced perspectives on risks and opportunities
+            3. Suggesting learning resources when appropriate
+            4. Never making specific buy/sell recommendations
+            Respond in a JSON format with: { "advice": string, "risks": string[], "nextSteps": string[] }`,
+          },
+          {
+            role: "user",
+            content: `Question: ${question}\nContext: ${context || 'No additional context provided'}`,
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const content = response.choices[0].message.content;
+      if (!content) {
+        throw new Error("No content in response");
+      }
+
+      res.json(JSON.parse(content));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: errorMessage });
     }
   });
 }
