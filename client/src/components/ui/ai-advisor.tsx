@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, MessageCircle, AlertTriangle } from "lucide-react";
+import { Loader2, MessageCircle, AlertTriangle, LineChart, GraduationCap } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -48,23 +48,24 @@ export function AIAdvisor() {
   };
 
   return (
-    <Card>
+    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MessageCircle className="h-5 w-5" />
+        <CardTitle className="flex items-center gap-2 text-2xl">
+          <MessageCircle className="h-6 w-6" />
           AI Trading Advisor
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="flex gap-2">
             <Input
               placeholder="Ask about any trading concept..."
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               disabled={advisorMutation.isPending}
+              className="text-lg"
             />
-            <Button type="submit" disabled={advisorMutation.isPending}>
+            <Button type="submit" disabled={advisorMutation.isPending} size="lg">
               {advisorMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -74,38 +75,63 @@ export function AIAdvisor() {
           </div>
 
           {advisorMutation.data && (
-            <div className="space-y-4 mt-4">
-              <div>
-                <p className="whitespace-pre-wrap">{advisorMutation.data.advice}</p>
-              </div>
+            <div className="space-y-6 mt-6">
+              {/* Main Explanation */}
+              <Card className="bg-white dark:bg-gray-800">
+                <CardContent className="pt-6">
+                  <LineChart className="h-6 w-6 mb-4 text-blue-500" />
+                  <div className="prose dark:prose-invert max-w-none">
+                    <p className="text-lg leading-relaxed whitespace-pre-wrap">
+                      {advisorMutation.data.advice}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
+              {/* Key Considerations */}
               {advisorMutation.data.risks.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                    Key Considerations
-                  </h4>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {advisorMutation.data.risks.map((risk, i) => (
-                      <li key={i} className="text-sm text-muted-foreground">
-                        {risk}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <Card className="bg-amber-50 dark:bg-gray-800/50">
+                  <CardContent className="pt-6">
+                    <h4 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                      <AlertTriangle className="h-5 w-5 text-amber-500" />
+                      Key Considerations
+                    </h4>
+                    <ul className="space-y-3">
+                      {advisorMutation.data.risks.map((risk, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-2 text-gray-700 dark:text-gray-300"
+                        >
+                          <span className="text-amber-600 mt-1">•</span>
+                          <span>{risk}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
               )}
 
+              {/* Next Steps */}
               {advisorMutation.data.nextSteps.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium mb-2">Next Steps</h4>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {advisorMutation.data.nextSteps.map((step, i) => (
-                      <li key={i} className="text-sm text-muted-foreground">
-                        {step}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <Card className="bg-green-50 dark:bg-gray-800/50">
+                  <CardContent className="pt-6">
+                    <h4 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                      <GraduationCap className="h-5 w-5 text-green-500" />
+                      Next Steps
+                    </h4>
+                    <ul className="space-y-3">
+                      {advisorMutation.data.nextSteps.map((step, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-2 text-gray-700 dark:text-gray-300"
+                        >
+                          <span className="text-green-600 mt-1">•</span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
               )}
             </div>
           )}
