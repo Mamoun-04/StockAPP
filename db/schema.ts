@@ -90,6 +90,8 @@ export const userQuizProgress = pgTable("user_quiz_progress", {
   sectionId: integer("section_id").references(() => quizSections.id),
   score: integer("score").default(0).notNull(),
   bestScore: integer("best_score").default(0).notNull(),
+  totalQuestionsAnswered: integer("total_questions_answered").default(0).notNull(),
+  correctAnswers: integer("correct_answers").default(0).notNull(),
   attemptsCount: integer("attempts_count").default(0).notNull(),
   lastAttemptAt: timestamp("last_attempt_at").defaultNow(),
 });

@@ -96,7 +96,7 @@ export function setupQuizRoutes(app: Express) {
         return res.status(401).send("Not logged in");
       }
 
-      const { questionId, answer } = req.body;
+      const { questionId, answer, isNewAttempt } = req.body;
 
       const [question] = await db
         .select()
@@ -117,63 +117,63 @@ export function setupQuizRoutes(app: Express) {
         correct,
       });
 
-      if (correct) {
-        // Award XP and check for level up
-        await db.transaction(async (tx) => {
-          // Get current user data
-          const [user] = await tx
-            .select()
-            .from(users)
-            .where(eq(users.id, req.user!.id))
-            .limit(1);
+      // Update progress and award XP if correct
+      await db.transaction(async (tx) => {
+        // Get current user data
+        const [user] = await tx
+          .select()
+          .from(users)
+          .where(eq(users.id, req.user!.id))
+          .limit(1);
 
-          const newXP = (user?.xp || 0) + question.xpReward;
-          const newLevel = Math.floor(newXP / 1000) + 1;
+        const newXP = (user?.xp || 0) + (correct ? question.xpReward : 0);
+        const newLevel = Math.floor(newXP / 1000) + 1;
 
-          // Update user XP and level
-          await tx
-            .update(users)
-            .set({
-              xp: newXP,
-              level: newLevel,
-            })
-            .where(eq(users.id, req.user!.id));
+        // Update user XP and level
+        await tx
+          .update(users)
+          .set({
+            xp: newXP,
+            level: newLevel,
+          })
+          .where(eq(users.id, req.user!.id));
 
-          // Update section progress
-          const [existingProgress] = await tx
-            .select()
-            .from(userQuizProgress)
-            .where(
-              and(
-                eq(userQuizProgress.userId, req.user!.id),
-                eq(userQuizProgress.sectionId, question.sectionId!)
-              )
+        // Update section progress
+        const [existingProgress] = await tx
+          .select()
+          .from(userQuizProgress)
+          .where(
+            and(
+              eq(userQuizProgress.userId, req.user!.id),
+              eq(userQuizProgress.sectionId, question.sectionId!)
             )
-            .limit(1);
+          )
+          .limit(1);
 
-          if (existingProgress) {
-            await tx
-              .update(userQuizProgress)
-              .set({
-                score: existingProgress.score + question.xpReward,
-                bestScore: Math.max(
-                  existingProgress.bestScore,
-                  existingProgress.score + question.xpReward
-                ),
-                attemptsCount: existingProgress.attemptsCount + 1,
-              })
-              .where(eq(userQuizProgress.id, existingProgress.id));
-          } else {
-            await tx.insert(userQuizProgress).values({
-              userId: req.user!.id,
-              sectionId: question.sectionId!,
-              score: question.xpReward,
-              bestScore: question.xpReward,
-              attemptsCount: 1,
-            });
-          }
-        });
-      }
+        if (existingProgress) {
+          const newScore = existingProgress.score + (correct ? question.xpReward : 0);
+          await tx
+            .update(userQuizProgress)
+            .set({
+              score: newScore,
+              bestScore: Math.max(existingProgress.bestScore, newScore),
+              totalQuestionsAnswered: existingProgress.totalQuestionsAnswered + 1,
+              correctAnswers: existingProgress.correctAnswers + (correct ? 1 : 0),
+              attemptsCount: existingProgress.attemptsCount + (isNewAttempt ? 1 : 0),
+            })
+            .where(eq(userQuizProgress.id, existingProgress.id));
+        } else {
+          await tx.insert(userQuizProgress).values({
+            userId: req.user!.id,
+            sectionId: question.sectionId!,
+            score: correct ? question.xpReward : 0,
+            bestScore: correct ? question.xpReward : 0,
+            totalQuestionsAnswered: 1,
+            correctAnswers: correct ? 1 : 0,
+            attemptsCount: 1,
+          });
+        }
+      });
 
       res.json({
         correct,

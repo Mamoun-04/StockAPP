@@ -68,6 +68,8 @@ type UserProgress = {
   sectionId: number;
   score: number;
   bestScore: number;
+  totalQuestionsAnswered: number;
+  correctAnswers: number;
   attemptsCount: number;
 };
 
@@ -109,7 +111,7 @@ export default function TradingTermsPage() {
   }, [currentQuestion]);
 
   const submitAnswerMutation = useMutation({
-    mutationFn: async (answer: { questionId: number; answer: string }) => {
+    mutationFn: async (answer: { questionId: number; answer: string; isNewAttempt: boolean }) => {
       const response = await fetch("/api/quiz/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,6 +153,13 @@ export default function TradingTermsPage() {
       setQuizScore(0);
       setSelectedAnswer(null);
       setIsAnswered(false);
+
+      // Submit with isNewAttempt flag
+      submitAnswerMutation.mutate({
+        questionId: firstQuestion.id,
+        answer: '',
+        isNewAttempt: true,
+      });
     }
   };
 
@@ -161,6 +170,7 @@ export default function TradingTermsPage() {
       const result = await submitAnswerMutation.mutateAsync({
         questionId: currentQuestion.id,
         answer: selectedAnswer,
+        isNewAttempt: false,
       });
 
       setIsAnswered(true);
@@ -224,6 +234,8 @@ export default function TradingTermsPage() {
               {sections.map((section) => {
                 const sectionProgress = progress.find(p => p.sectionId === section.id);
                 const categoryLevel = getCategoryLevel(section.id);
+                const totalPossibleXP = questions?.reduce((sum, q) => sum + q.xpReward, 0) || 0; // Handle undefined questions
+
                 return (
                   <Card key={section.id} className="p-4">
                     <div className="flex items-center justify-between">
@@ -240,13 +252,13 @@ export default function TradingTermsPage() {
                         {sectionProgress && (
                           <div className="flex items-center gap-4 mt-2">
                             <div className="text-sm">
-                              Best Score: {sectionProgress.bestScore}
+                              Best Score: {sectionProgress.bestScore} / {totalPossibleXP} XP
                             </div>
                             <div className="text-sm">
                               Attempts: {sectionProgress.attemptsCount}
                             </div>
                             <Progress 
-                              value={(sectionProgress.bestScore % 500) / 5} 
+                              value={totalPossibleXP === 0 ? 0 : (sectionProgress.bestScore / totalPossibleXP) * 100} 
                               className="w-24"
                             />
                           </div>
