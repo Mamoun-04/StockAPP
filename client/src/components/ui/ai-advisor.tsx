@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, MessageCircle, AlertTriangle, LineChart, GraduationCap } from "lucide-react";
+import { Loader2, MessageCircle, AlertTriangle, LineChart, GraduationCap, ArrowRight } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -45,6 +45,31 @@ export function AIAdvisor() {
     if (!question.trim()) return;
 
     advisorMutation.mutate(question);
+  };
+
+  // Helper to extract key terms from the advice text
+  const generateSuggestedQuestions = (advice: string): string[] => {
+    const commonTerms = [
+      ["profit margin", "What is net profit?", "How to calculate gross profit?", "What's a good profit margin?"],
+      ["revenue", "What is gross revenue?", "How to increase revenue?", "What's the difference between revenue and profit?"],
+      ["investment", "What are diversification strategies?", "How to assess investment risk?", "What's dollar-cost averaging?"],
+      ["stock market", "What are stock indices?", "How do dividends work?", "What is market capitalization?"],
+      ["trading volume", "What is liquidity?", "How does volume affect price?", "What is average daily trading volume?"],
+    ];
+
+    // Find matching terms and return their questions
+    for (const [term, ...questions] of commonTerms) {
+      if (advice.toLowerCase().includes(term.toLowerCase())) {
+        return questions;
+      }
+    }
+
+    // Default questions if no specific terms are found
+    return [
+      "What are the key market indicators?",
+      "How to manage trading risk?",
+      "What is fundamental analysis?",
+    ];
   };
 
   return (
@@ -133,6 +158,32 @@ export function AIAdvisor() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Suggested Questions */}
+              <Card className="bg-blue-50 dark:bg-gray-800/50">
+                <CardContent className="pt-6">
+                  <h4 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                    <MessageCircle className="h-5 w-5 text-blue-500" />
+                    Related Questions
+                  </h4>
+                  <div className="grid gap-2">
+                    {generateSuggestedQuestions(advisorMutation.data.advice).map((suggestedQ, i) => (
+                      <Button 
+                        key={i}
+                        variant="ghost" 
+                        className="justify-start text-left hover:bg-blue-100 dark:hover:bg-gray-700"
+                        onClick={() => {
+                          setQuestion(suggestedQ);
+                          advisorMutation.mutate(suggestedQ);
+                        }}
+                      >
+                        <ArrowRight className="h-4 w-4 mr-2 text-blue-500" />
+                        {suggestedQ}
+                      </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
         </form>
