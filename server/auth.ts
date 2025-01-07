@@ -60,6 +60,7 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
+        // Get full user object with all fields
         const [user] = await db
           .select()
           .from(users)
@@ -86,11 +87,25 @@ export function setupAuth(app: Express) {
 
   passport.deserializeUser(async (id: number, done) => {
     try {
+      // Get full user object with all fields including xp and level
       const [user] = await db
-        .select()
+        .select({
+          id: users.id,
+          username: users.username,
+          alpacaApiKey: users.alpacaApiKey,
+          alpacaSecretKey: users.alpacaSecretKey,
+          xp: users.xp,
+          level: users.level,
+          createdAt: users.createdAt,
+        })
         .from(users)
         .where(eq(users.id, id))
         .limit(1);
+
+      if (!user) {
+        return done(new Error('User not found'));
+      }
+
       done(null, user);
     } catch (err) {
       done(err);
@@ -127,6 +142,8 @@ export function setupAuth(app: Express) {
           password: hashedPassword,
           alpacaApiKey,
           alpacaSecretKey,
+          xp: 0,
+          level: 1,
         })
         .returning();
 
@@ -141,6 +158,8 @@ export function setupAuth(app: Express) {
             username: newUser.username,
             alpacaApiKey: newUser.alpacaApiKey,
             alpacaSecretKey: newUser.alpacaSecretKey,
+            xp: newUser.xp,
+            level: newUser.level,
           },
         });
       });
@@ -171,6 +190,8 @@ export function setupAuth(app: Express) {
             username: user.username,
             alpacaApiKey: user.alpacaApiKey,
             alpacaSecretKey: user.alpacaSecretKey,
+            xp: user.xp,
+            level: user.level,
           },
         });
       });
