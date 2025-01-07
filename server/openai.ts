@@ -96,7 +96,7 @@ export function setupOpenAIRoutes(app: Express) {
     }
   });
 
-  // New AI advisor endpoint
+  // Enhanced AI advisor endpoint
   app.post("/api/ai/advisor", async (req, res) => {
     try {
       const { question, context } = req.body;
@@ -106,12 +106,24 @@ export function setupOpenAIRoutes(app: Express) {
         messages: [
           {
             role: "system",
-            content: `You are an expert trading advisor assistant. Your goal is to help users make informed trading decisions by:
+            content: `You are an expert trading advisor assistant. Your goal is to help users understand trading concepts by:
             1. Explaining concepts in simple terms
-            2. Providing balanced perspectives on risks and opportunities
-            3. Suggesting learning resources when appropriate
-            4. Never making specific buy/sell recommendations
-            Respond in a JSON format with: { "advice": string, "risks": string[], "nextSteps": string[] }`,
+            2. Providing concrete numerical examples (e.g., if explaining profit margins, use a sample company with actual numbers)
+            3. Highlighting key risks and considerations
+            4. Suggesting next steps for learning
+            5. Never making specific buy/sell recommendations
+
+            When explaining terms, always include:
+            - A clear definition
+            - A real-world example with numbers
+            - Common pitfalls or misconceptions
+
+            Respond in a JSON format with:
+            {
+              "advice": string (main explanation with numerical example),
+              "risks": string[] (key considerations),
+              "nextSteps": string[] (suggested learning steps)
+            }`,
           },
           {
             role: "user",

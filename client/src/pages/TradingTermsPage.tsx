@@ -255,13 +255,14 @@ export default function TradingTermsPage() {
                         {sectionProgress && (
                           <div className="flex items-center gap-4 mt-2">
                             <div className="text-sm">
-                              Score: {sectionProgress.correctAnswers} / {questions.length} questions
+                              Score: {sectionProgress.correctAnswers} / {sectionProgress.totalQuestionsAnswered}
                             </div>
                             <div className="text-sm">
                               Attempts: {sectionProgress.attemptsCount}
                             </div>
                             <Progress
-                              value={questions.length > 0 ? (sectionProgress.correctAnswers / questions.length) * 100 : 0}
+                              value={sectionProgress.totalQuestionsAnswered > 0 ? 
+                                (sectionProgress.correctAnswers / sectionProgress.totalQuestionsAnswered) * 100 : 0}
                               className="w-24"
                             />
                           </div>
