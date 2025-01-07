@@ -6,7 +6,7 @@ import { useUser } from "@/hooks/use-user";
 import StockChart from "@/components/dashboard/StockChart";
 import Portfolio from "@/components/dashboard/Portfolio";
 import AIChat from "@/components/dashboard/AIChat";
-import StockSearch from "@/components/dashboard/StockSearch";
+import { StockSearch } from "@/components/ui/stock-search";
 import TradePanel from "@/components/dashboard/TradePanel";
 import { LogOut, Book } from "lucide-react";
 
@@ -43,7 +43,7 @@ export default function DashboardPage() {
           {/* Left column */}
           <div className="col-span-12 lg:col-span-8 space-y-6">
             <Card className="p-6">
-              <StockSearch onSelect={setSelectedSymbol} />
+              <StockSearch value={selectedSymbol} onSelect={setSelectedSymbol} />
               {selectedSymbol && <StockChart symbol={selectedSymbol} />}
             </Card>
 
