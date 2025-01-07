@@ -234,7 +234,8 @@ export default function TradingTermsPage() {
               {sections.map((section) => {
                 const sectionProgress = progress.find(p => p.sectionId === section.id);
                 const categoryLevel = getCategoryLevel(section.id);
-                const totalPossibleXP = questions?.reduce((sum, q) => sum + q.xpReward, 0) || 0; // Handle undefined questions
+                const currentSectionQuestions = questions.filter(q => q.sectionId === section.id);
+                const totalPossibleXP = currentSectionQuestions.reduce((sum, q) => sum + q.xpReward, 0);
 
                 return (
                   <Card key={section.id} className="p-4">
@@ -252,13 +253,13 @@ export default function TradingTermsPage() {
                         {sectionProgress && (
                           <div className="flex items-center gap-4 mt-2">
                             <div className="text-sm">
-                              Best Score: {sectionProgress.bestScore} / {totalPossibleXP} XP
+                              Best Score: {sectionProgress.bestScore} / {totalPossibleXP || '---'} XP
                             </div>
                             <div className="text-sm">
                               Attempts: {sectionProgress.attemptsCount}
                             </div>
                             <Progress 
-                              value={totalPossibleXP === 0 ? 0 : (sectionProgress.bestScore / totalPossibleXP) * 100} 
+                              value={totalPossibleXP ? (sectionProgress.bestScore / totalPossibleXP) * 100 : 0}
                               className="w-24"
                             />
                           </div>
