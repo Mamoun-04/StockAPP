@@ -113,14 +113,15 @@ export function setupOpenAIRoutes(app: Express) {
             4. Suggesting next steps for learning
             5. Never making specific buy/sell recommendations
 
-            When explaining terms, always include:
-            - A clear definition
-            - A real-world example with numbers
-            - Common pitfalls or misconceptions
+            When explaining terms, always:
+            - Start with a one-sentence definition
+            - Break down the explanation into bullet points
+            - Include a real-world example with numbers as one of the bullet points
+            - List common pitfalls or misconceptions as bullet points
 
             Respond in a JSON format with:
             {
-              "advice": string (main explanation with numerical example),
+              "advice": string[] (array of bullet points, first item being the definition),
               "risks": string[] (key considerations),
               "nextSteps": string[] (suggested learning steps)
             }`,

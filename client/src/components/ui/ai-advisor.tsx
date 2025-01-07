@@ -7,7 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 type AdvisorResponse = {
-  advice: string;
+  advice: string[];
   risks: string[];
   nextSteps: string[];
 };
@@ -106,9 +106,18 @@ export function AIAdvisor() {
                 <CardContent className="pt-6">
                   <LineChart className="h-6 w-6 mb-4 text-blue-500" />
                   <div className="prose dark:prose-invert max-w-none">
-                    <p className="text-lg leading-relaxed whitespace-pre-wrap">
-                      {advisorMutation.data.advice}
-                    </p>
+                    {advisorMutation.data.advice.map((point, i) => (
+                      <div key={i} className={i === 0 ? 'mb-4 text-lg font-medium' : 'flex items-start gap-2 mb-2'}>
+                        {i === 0 ? (
+                          point
+                        ) : (
+                          <>
+                            <span className="text-blue-600 mt-1">•</span>
+                            <span className="text-gray-700 dark:text-gray-300">{point}</span>
+                          </>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -167,10 +176,10 @@ export function AIAdvisor() {
                     Related Questions
                   </h4>
                   <div className="grid gap-2">
-                    {generateSuggestedQuestions(advisorMutation.data.advice).map((suggestedQ, i) => (
-                      <Button 
+                    {generateSuggestedQuestions(advisorMutation.data.advice.join(' ')).map((suggestedQ, i) => (
+                      <Button
                         key={i}
-                        variant="ghost" 
+                        variant="ghost"
                         className="justify-start text-left hover:bg-blue-100 dark:hover:bg-gray-700"
                         onClick={() => {
                           setQuestion(suggestedQ);
