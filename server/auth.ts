@@ -89,15 +89,7 @@ export function setupAuth(app: Express) {
     try {
       // Get full user object with all fields including xp and level
       const [user] = await db
-        .select({
-          id: users.id,
-          username: users.username,
-          alpacaApiKey: users.alpacaApiKey,
-          alpacaSecretKey: users.alpacaSecretKey,
-          xp: users.xp,
-          level: users.level,
-          createdAt: users.createdAt,
-        })
+        .select()
         .from(users)
         .where(eq(users.id, id))
         .limit(1);
