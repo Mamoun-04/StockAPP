@@ -20,6 +20,12 @@ export function registerRoutes(app: Express): Server {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Add request logging middleware
+  app.use((req, res, next) => {
+    console.log(`${req.method} ${req.path}`);
+    next();
+  });
+
   // Register route handlers
   setupAuth(app);
   setupAlpacaRoutes(app);

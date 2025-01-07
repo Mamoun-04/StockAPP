@@ -26,8 +26,8 @@ type TradePanelProps = {
 
 export default function TradePanel({ symbol }: TradePanelProps) {
   const [side, setSide] = useState<"buy" | "sell">("buy");
-  const { quote, isLoading, placeTrade } = useMarketData(symbol);
-  const { register, handleSubmit, reset } = useForm<TradeFormData>();
+  const { quote, isLoading, placeTrade, account } = useMarketData(symbol);
+  const { register, handleSubmit, reset, formState: { errors }, watch } = useForm<TradeFormData>();
 
   const onSubmit = async (data: TradeFormData) => {
     if (!symbol) return;
@@ -55,7 +55,14 @@ export default function TradePanel({ symbol }: TradePanelProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Trade {symbol}</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <span>Trade {symbol}</span>
+          {account && (
+            <span className="text-sm text-muted-foreground">
+              Buying Power: ${account.buyingPower.toLocaleString()}
+            </span>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -83,8 +90,14 @@ export default function TradePanel({ symbol }: TradePanelProps) {
               type="number"
               min="1"
               step="1"
-              {...register("qty")}
+              {...register("qty", { 
+                required: "Quantity is required",
+                min: { value: 1, message: "Minimum quantity is 1" }
+              })}
             />
+            {errors.qty && (
+              <p className="text-sm text-red-500">{errors.qty.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -116,6 +129,11 @@ export default function TradePanel({ symbol }: TradePanelProps) {
           {quote && (
             <div className="text-sm text-muted-foreground">
               Current Price: ${quote.price.toFixed(2)}
+              {account && (
+                <div className="mt-1">
+                  Estimated Cost: ${(quote.price * Number(watch("qty") || 0)).toFixed(2)}
+                </div>
+              )}
             </div>
           )}
 

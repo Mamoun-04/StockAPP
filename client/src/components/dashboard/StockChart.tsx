@@ -7,9 +7,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ComposedChart,
   Bar,
-  Area,
+  ReferenceLine,
 } from "recharts";
 import { useMarketData } from "@/hooks/use-market-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format } from "date-fns";
+import React from 'react';
 
 type StockChartProps = {
   symbol: string;
@@ -38,9 +38,6 @@ interface PriceData {
   low: number;
   close: number;
   volume: number;
-  wickHeight?: number;
-  bodyHeight?: number;
-  isPositive?: boolean;
 }
 
 export default function StockChart({ symbol }: StockChartProps) {
@@ -57,21 +54,15 @@ export default function StockChart({ symbol }: StockChartProps) {
   }
 
   // Process historical data for visualization
-  const processedData: PriceData[] = historicalData.map((item) => {
-    const data: PriceData = {
-      time: format(new Date(item.time), getTimeFormat(timeFrame)),
-      price: item.close,
-      open: item.open,
-      high: item.high,
-      low: item.low,
-      close: item.close,
-      volume: item.volume,
-      wickHeight: item.high - item.low,
-      bodyHeight: Math.abs(item.close - item.open),
-      isPositive: item.close >= item.open,
-    };
-    return data;
-  });
+  const processedData = historicalData.map((item) => ({
+    time: format(new Date(item.time), getTimeFormat(timeFrame)),
+    price: item.close,
+    open: item.open,
+    high: item.high,
+    low: item.low,
+    close: item.close,
+    volume: item.volume,
+  }));
 
   const priceChange = quote.change;
   const priceChangePercent = quote.changePercent;
@@ -125,8 +116,9 @@ export default function StockChart({ symbol }: StockChartProps) {
         </LineChart>
       );
     } else {
+      // Candlestick chart using Bars
       return (
-        <ComposedChart data={processedData}>
+        <LineChart data={processedData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
             dataKey="time"
@@ -143,24 +135,27 @@ export default function StockChart({ symbol }: StockChartProps) {
             formatter={(value: number) => [`$${value.toFixed(2)}`, "Price"]}
             labelFormatter={(label) => `Time: ${label}`}
           />
-          {/* Candlestick wicks */}
-          <Bar
-            dataKey="wickHeight"
-            fill="none"
-            stroke="#666"
-            yAxisId={0}
-            barSize={2}
-          />
-          {/* Candlestick bodies */}
-          <Area
-            type="step"
-            dataKey="bodyHeight"
-            fill={(data: PriceData) =>
-              data.isPositive ? "#22c55e" : "#ef4444"
-            }
-            stroke="none"
-          />
-        </ComposedChart>
+          {processedData.map((item, index) => (
+            <React.Fragment key={index}>
+              {/* High-Low line */}
+              <ReferenceLine
+                segment={[
+                  { x: item.time, y: item.high },
+                  { x: item.time, y: item.low },
+                ]}
+                stroke="#666"
+                strokeWidth={1}
+              />
+              {/* Open-Close bar */}
+              <Bar
+                dataKey={item.close >= item.open ? "close" : "open"}
+                data={[item]}
+                fill={item.close >= item.open ? "#22c55e" : "#ef4444"}
+                barSize={8}
+              />
+            </React.Fragment>
+          ))}
+        </LineChart>
       );
     }
   };

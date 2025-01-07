@@ -45,7 +45,6 @@ export function setupAlpacaRoutes(app: Express) {
         timeframe: '1Day',
       });
 
-      // Get the first bar to calculate day change
       const bars = [];
       for await (const bar of lastDay) {
         bars.push(bar);
@@ -121,15 +120,14 @@ export function setupAlpacaRoutes(app: Express) {
           barTimeframe = "1Min";
       }
 
-      const bars = await alpaca.getBarsV2(
-        symbol,
-        {
-          start: start.toISOString(),
-          end: end.toISOString(),
-          timeframe: barTimeframe,
-          adjustment: 'raw'
-        }
-      );
+      console.log(`Fetching ${symbol} data from ${start.toISOString()} to ${end.toISOString()} with timeframe ${barTimeframe}`);
+
+      const bars = await alpaca.getBarsV2(symbol, {
+        start: start.toISOString(),
+        end: end.toISOString(),
+        timeframe: barTimeframe,
+        adjustment: 'raw'
+      });
 
       // Collect all the bars
       const allBars = [];
@@ -147,27 +145,6 @@ export function setupAlpacaRoutes(app: Express) {
       res.json(allBars);
     } catch (error: unknown) {
       console.error('Alpaca API Error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      res.status(500).json({ error: errorMessage });
-    }
-  });
-
-  app.get("/api/market/trades/:symbol", async (req, res) => {
-    try {
-      if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {
-        return res.status(400).send("Alpaca API credentials not configured");
-      }
-
-      const alpaca = new Alpaca({
-        keyId: req.user.alpacaApiKey,
-        secretKey: req.user.alpacaSecretKey,
-        paper: true,
-      });
-
-      const { symbol } = req.params;
-      const trades = await alpaca.getLatestTrade(symbol);
-      res.json(trades);
-    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       res.status(500).json({ error: errorMessage });
     }
