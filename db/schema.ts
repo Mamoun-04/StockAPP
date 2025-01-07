@@ -65,14 +65,33 @@ export const userAchievements = pgTable("user_achievements", {
   unlockedAt: timestamp("unlocked_at").defaultNow(),
 });
 
+export const quizSections = pgTable("quiz_sections", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  difficulty: text("difficulty").notNull(), // beginner, intermediate, advanced
+  order: integer("order").notNull(),
+});
+
 export const quizQuestions = pgTable("quiz_questions", {
   id: serial("id").primaryKey(),
+  sectionId: integer("section_id").references(() => quizSections.id),
   term: text("term").notNull(),
   question: text("question").notNull(),
   correctAnswer: text("correct_answer").notNull(),
   wrongAnswers: text("wrong_answers").array().notNull(),
   difficulty: text("difficulty").notNull(), // easy, medium, hard
   xpReward: integer("xp_reward").notNull(),
+});
+
+export const userQuizProgress = pgTable("user_quiz_progress", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  sectionId: integer("section_id").references(() => quizSections.id),
+  score: integer("score").default(0).notNull(),
+  bestScore: integer("best_score").default(0).notNull(),
+  attemptsCount: integer("attempts_count").default(0).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at").defaultNow(),
 });
 
 export const userQuizAttempts = pgTable("user_quiz_attempts", {
@@ -87,6 +106,8 @@ export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 export const insertQuizQuestionSchema = createInsertSchema(quizQuestions);
 export const selectQuizQuestionSchema = createSelectSchema(quizQuestions);
+export const insertQuizSectionSchema = createInsertSchema(quizSections);
+export const selectQuizSectionSchema = createSelectSchema(quizSections);
 
 export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
@@ -98,3 +119,5 @@ export type Achievement = typeof achievements.$inferSelect;
 export type UserAchievement = typeof userAchievements.$inferSelect;
 export type QuizQuestion = typeof quizQuestions.$inferSelect;
 export type UserQuizAttempt = typeof userQuizAttempts.$inferSelect;
+export type QuizSection = typeof quizSections.$inferSelect;
+export type UserQuizProgress = typeof userQuizProgress.$inferSelect;

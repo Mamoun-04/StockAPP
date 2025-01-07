@@ -2,30 +2,85 @@ import type { Express } from "express";
 import { db } from "@db";
 import {
   quizQuestions,
+  quizSections,
+  userQuizProgress,
   userQuizAttempts,
-  achievements,
-  userAchievements,
   users,
 } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 
 export function setupQuizRoutes(app: Express) {
-  // Get quiz questions
+  // Get quiz sections
+  app.get("/api/quiz/sections", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).send("Not logged in");
+      }
+
+      const sections = await db
+        .select({
+          id: quizSections.id,
+          title: quizSections.title,
+          description: quizSections.description,
+          difficulty: quizSections.difficulty,
+          order: quizSections.order,
+        })
+        .from(quizSections)
+        .orderBy(quizSections.order);
+
+      res.json(sections);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
+  // Get user progress for all sections
+  app.get("/api/quiz/progress", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).send("Not logged in");
+      }
+
+      const progress = await db
+        .select({
+          sectionId: userQuizProgress.sectionId,
+          score: userQuizProgress.score,
+          bestScore: userQuizProgress.bestScore,
+          attemptsCount: userQuizProgress.attemptsCount,
+        })
+        .from(userQuizProgress)
+        .where(eq(userQuizProgress.userId, req.user.id));
+
+      res.json(progress);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
+  // Get quiz questions for a section
   app.get("/api/quiz/questions", async (req, res) => {
     try {
       if (!req.user?.id) {
         return res.status(401).send("Not logged in");
       }
 
-      const questions = await db.select({
-        id: quizQuestions.id,
-        term: quizQuestions.term,
-        question: quizQuestions.question,
-        correctAnswer: quizQuestions.correctAnswer,
-        wrongAnswers: quizQuestions.wrongAnswers,
-        difficulty: quizQuestions.difficulty,
-        xpReward: quizQuestions.xpReward,
-      }).from(quizQuestions);
+      const sectionId = req.query.sectionId ? parseInt(req.query.sectionId as string) : undefined;
+
+      const questions = await db
+        .select({
+          id: quizQuestions.id,
+          sectionId: quizQuestions.sectionId,
+          term: quizQuestions.term,
+          question: quizQuestions.question,
+          correctAnswer: quizQuestions.correctAnswer,
+          wrongAnswers: quizQuestions.wrongAnswers,
+          difficulty: quizQuestions.difficulty,
+          xpReward: quizQuestions.xpReward,
+        })
+        .from(quizQuestions)
+        .where(sectionId ? eq(quizQuestions.sectionId, sectionId) : undefined);
 
       res.json(questions);
     } catch (error: unknown) {
@@ -43,7 +98,11 @@ export function setupQuizRoutes(app: Express) {
 
       const { questionId, answer } = req.body;
 
-      const [question] = await db.select().from(quizQuestions).where(eq(quizQuestions.id, questionId)).limit(1);
+      const [question] = await db
+        .select()
+        .from(quizQuestions)
+        .where(eq(quizQuestions.id, questionId))
+        .limit(1);
 
       if (!question) {
         return res.status(404).send("Question not found");
@@ -61,10 +120,17 @@ export function setupQuizRoutes(app: Express) {
       if (correct) {
         // Award XP and check for level up
         await db.transaction(async (tx) => {
-          const [user] = await tx.select().from(users).where(eq(users.id, req.user!.id)).limit(1);
+          // Get current user data
+          const [user] = await tx
+            .select()
+            .from(users)
+            .where(eq(users.id, req.user!.id))
+            .limit(1);
+
           const newXP = (user?.xp || 0) + question.xpReward;
           const newLevel = Math.floor(newXP / 1000) + 1;
 
+          // Update user XP and level
           await tx
             .update(users)
             .set({
@@ -73,50 +139,38 @@ export function setupQuizRoutes(app: Express) {
             })
             .where(eq(users.id, req.user!.id));
 
-          // Check for quiz-related achievements
-          const quizAchievements = await tx.select().from(achievements)
-            .where(eq(achievements.requirement['type'].type, 'quiz_completed'));
+          // Update section progress
+          const [existingProgress] = await tx
+            .select()
+            .from(userQuizProgress)
+            .where(
+              and(
+                eq(userQuizProgress.userId, req.user!.id),
+                eq(userQuizProgress.sectionId, question.sectionId!)
+              )
+            )
+            .limit(1);
 
-          for (const achievement of quizAchievements) {
-            const correctAnswers = await tx.select()
-              .from(userQuizAttempts)
-              .where(
-                and(
-                  eq(userQuizAttempts.userId, req.user!.id),
-                  eq(userQuizAttempts.correct, true)
-                )
-              ).then(rows => rows.length);
-
-            const requirement = achievement.requirement as { type: string; value: number };
-
-            if (correctAnswers >= requirement.value) {
-              const existingAchievement = await tx.select()
-                .from(userAchievements)
-                .where(
-                  and(
-                    eq(userAchievements.userId, req.user!.id),
-                    eq(userAchievements.achievementId, achievement.id)
-                  )
-                )
-                .limit(1);
-
-              if (!existingAchievement.length) {
-                // Award achievement
-                await tx.insert(userAchievements).values({
-                  userId: req.user!.id,
-                  achievementId: achievement.id,
-                });
-
-                // Award achievement XP
-                await tx
-                  .update(users)
-                  .set({
-                    xp: newXP + achievement.xpReward,
-                    level: Math.floor((newXP + achievement.xpReward) / 1000) + 1,
-                  })
-                  .where(eq(users.id, req.user!.id));
-              }
-            }
+          if (existingProgress) {
+            await tx
+              .update(userQuizProgress)
+              .set({
+                score: existingProgress.score + question.xpReward,
+                bestScore: Math.max(
+                  existingProgress.bestScore,
+                  existingProgress.score + question.xpReward
+                ),
+                attemptsCount: existingProgress.attemptsCount + 1,
+              })
+              .where(eq(userQuizProgress.id, existingProgress.id));
+          } else {
+            await tx.insert(userQuizProgress).values({
+              userId: req.user!.id,
+              sectionId: question.sectionId!,
+              score: question.xpReward,
+              bestScore: question.xpReward,
+              attemptsCount: 1,
+            });
           }
         });
       }
@@ -126,6 +180,7 @@ export function setupQuizRoutes(app: Express) {
         xpEarned: correct ? question.xpReward : 0,
       });
     } catch (error: unknown) {
+      console.error('Error submitting answer:', error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: errorMessage });
     }
