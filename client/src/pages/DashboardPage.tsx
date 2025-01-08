@@ -9,6 +9,7 @@ import TradePanel from "@/components/dashboard/TradePanel";
 import SentimentPanel from "@/components/dashboard/SentimentPanel";
 import { useStockRotation } from "@/hooks/use-stock-rotation";
 import Header from "@/components/ui/header";
+import Footer from "@/components/ui/footer";
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -21,10 +22,10 @@ export default function DashboardPage() {
   }, [currentSymbol]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
       {/* Main Content */}
-      <main className="max-w-screen-2xl mx-auto px-4 py-6">
+      <main className="max-w-screen-2xl mx-auto px-4 py-6 flex-grow">
         <div className="grid grid-cols-12 gap-6">
           {/* Left Sidebar - Portfolio */}
           <div className="col-span-12 md:col-span-3 space-y-4">
@@ -78,6 +79,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

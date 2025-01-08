@@ -15,6 +15,7 @@ import { Trophy, Lock, CheckCircle2, Star } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import Header from "@/components/ui/header";
 import TradingTermsPage from "./TradingTermsPage";
+import Footer from "@/components/ui/footer";
 
 type Lesson = {
   id: number;
@@ -56,12 +57,10 @@ export default function LearningPage() {
   });
 
   if (lessonsError || achievementsError) {
-    console.error('Lessons Error:', lessonsError);
-    console.error('Achievements Error:', achievementsError);
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <div className="p-8">
+        <div className="flex-grow p-8">
           <div className="max-w-7xl mx-auto">
             <Card>
               <CardContent className="p-6">
@@ -70,15 +69,16 @@ export default function LearningPage() {
             </Card>
           </div>
         </div>
+        <Footer />
       </div>
     );
   }
 
   if (showTerms) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <div className="p-8">
+        <div className="flex-grow p-8">
           <Button 
             variant="outline" 
             className="mb-4"
@@ -88,6 +88,7 @@ export default function LearningPage() {
           </Button>
           <TradingTermsPage />
         </div>
+        <Footer />
       </div>
     );
   }
@@ -125,9 +126,9 @@ export default function LearningPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <div className="p-8">
+      <div className="flex-grow p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Add Trading Terms Button */}
           <Button 
@@ -287,6 +288,7 @@ export default function LearningPage() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
