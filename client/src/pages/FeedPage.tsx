@@ -135,11 +135,16 @@ export default function FeedPage() {
     addCommentMutation.mutate({ postId, content });
   };
 
-  const getInitials = (author: { displayName?: string; username: string }) => {
-    if (author.displayName) {
+  const getInitials = (author: { displayName?: string; username: string } | undefined) => {
+    if (author?.displayName) {
       return author.displayName[0].toUpperCase();
     }
-    return author.username[0].toUpperCase();
+    return author?.username ? author.username[0].toUpperCase() : '?';
+  };
+
+  const renderAuthorName = (author: { displayName?: string; username: string } | undefined) => {
+    if (!author) return 'Unknown User';
+    return author.displayName || author.username;
   };
 
   const renderTradeInfo = (post: Post) => {
@@ -209,16 +214,19 @@ export default function FeedPage() {
                     {/* Post Header */}
                     <div className="flex items-center space-x-4 mb-4">
                       <Avatar>
-                        {post.author?.avatarUrl ? (
-                          <AvatarImage src={post.author.avatarUrl} alt={post.author.displayName || post.author.username} />
-                        ) : null}
+                        {post.author?.avatarUrl && (
+                          <AvatarImage 
+                            src={post.author.avatarUrl} 
+                            alt={renderAuthorName(post.author)}
+                          />
+                        )}
                         <AvatarFallback>
                           {post.author ? getInitials(post.author) : '?'}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <div className="font-semibold">
-                          {post.author?.displayName || post.author?.username || 'Unknown User'}
+                          {renderAuthorName(post.author)}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
@@ -242,16 +250,19 @@ export default function FeedPage() {
                           {post.comments?.map((comment) => (
                             <div key={comment.id} className="flex space-x-3">
                               <Avatar className="h-6 w-6">
-                                {comment.author?.avatarUrl ? (
-                                  <AvatarImage src={comment.author.avatarUrl} alt={comment.author.displayName || comment.author.username} />
-                                ) : null}
+                                {comment.author?.avatarUrl && (
+                                  <AvatarImage 
+                                    src={comment.author.avatarUrl} 
+                                    alt={renderAuthorName(comment.author)}
+                                  />
+                                )}
                                 <AvatarFallback>
                                   {comment.author ? getInitials(comment.author) : '?'}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
                                 <div className="text-sm font-medium">
-                                  {comment.author?.displayName || comment.author?.username || 'Unknown User'}
+                                  {renderAuthorName(comment.author)}
                                 </div>
                                 <p className="text-sm text-muted-foreground">
                                   {comment.content}
