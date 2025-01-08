@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/use-user";
 import StockChart from "@/components/dashboard/StockChart";
 import Portfolio from "@/components/dashboard/Portfolio";
@@ -9,11 +7,11 @@ import AIChat from "@/components/dashboard/AIChat";
 import { StockSearch } from "@/components/ui/stock-search";
 import TradePanel from "@/components/dashboard/TradePanel";
 import SentimentPanel from "@/components/dashboard/SentimentPanel";
-import { LogOut, Users, BookOpen, LineChart } from "lucide-react";
 import { useStockRotation } from "@/hooks/use-stock-rotation";
+import Header from "@/components/ui/header";
 
 export default function DashboardPage() {
-  const { user, logout } = useUser();
+  const { user } = useUser();
   const { currentSymbol, isPositionSymbol } = useStockRotation();
   const [selectedSymbol, setSelectedSymbol] = useState(currentSymbol);
 
@@ -24,41 +22,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Top Navigation */}
-      <nav className="border-b bg-white dark:bg-gray-900">
-        <div className="max-w-screen-2xl mx-auto px-4">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-8">
-              <h1 className="text-xl font-bold">Trading Platform</h1>
-              <div className="hidden md:flex space-x-4">
-                <Link href="/portfolio">
-                  <Button variant="ghost" className="flex items-center">
-                    <Users className="h-4 w-4 mr-2" />
-                    Portfolio
-                  </Button>
-                </Link>
-                <Link href="/study">
-                  <Button variant="ghost" className="flex items-center">
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    Study
-                  </Button>
-                </Link>
-                <Link href="/feed">
-                  <Button variant="ghost" className="flex items-center">
-                    <LineChart className="h-4 w-4 mr-2" />
-                    Feed
-                  </Button>
-                </Link>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => logout()}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
-          </div>
-        </div>
-      </nav>
-
+      <Header />
       {/* Main Content */}
       <main className="max-w-screen-2xl mx-auto px-4 py-6">
         <div className="grid grid-cols-12 gap-6">

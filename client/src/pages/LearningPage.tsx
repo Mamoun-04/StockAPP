@@ -13,6 +13,8 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Lock, CheckCircle2, Star } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
+import Header from "@/components/ui/header";
+import TradingTermsPage from "./TradingTermsPage";
 
 type Lesson = {
   id: number;
@@ -41,28 +43,50 @@ type Achievement = {
 export default function LearningPage() {
   const { user } = useUser();
   const [selectedLesson, setSelectedLesson] = useState<number | null>(null);
+  const [showTerms, setShowTerms] = useState(false);
 
   const { data: lessons = [], isLoading: lessonsLoading, error: lessonsError } = useQuery<Lesson[]>({
     queryKey: ['/api/lessons'],
-    enabled: !!user?.id, // Only fetch when user is logged in
+    enabled: !!user?.id,
   });
 
   const { data: achievements = [], isLoading: achievementsLoading, error: achievementsError } = useQuery<Achievement[]>({
     queryKey: ['/api/achievements'],
-    enabled: !!user?.id, // Only fetch when user is logged in
+    enabled: !!user?.id,
   });
 
   if (lessonsError || achievementsError) {
     console.error('Lessons Error:', lessonsError);
     console.error('Achievements Error:', achievementsError);
     return (
-      <div className="min-h-screen bg-background p-8">
-        <div className="max-w-7xl mx-auto">
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-destructive">Error loading content. Please try again later.</p>
-            </CardContent>
-          </Card>
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="p-8">
+          <div className="max-w-7xl mx-auto">
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-destructive">Error loading content. Please try again later.</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showTerms) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="p-8">
+          <Button 
+            variant="outline" 
+            className="mb-4"
+            onClick={() => setShowTerms(false)}
+          >
+            Back to Lessons
+          </Button>
+          <TradingTermsPage />
         </div>
       </div>
     );
@@ -101,156 +125,165 @@ export default function LearningPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* User Progress Overview */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Learning Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <Progress value={progress} className="h-2" />
+    <div className="min-h-screen bg-background">
+      <Header />
+      <div className="p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* Add Trading Terms Button */}
+          <Button 
+            size="lg" 
+            className="w-full"
+            onClick={() => setShowTerms(true)}
+          >
+            Trading Terms & Quizzes
+          </Button>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Learning Progress</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Progress value={progress} className="h-2" />
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {completedLessons}/{totalLessons} Lessons
+                  </span>
                 </div>
-                <span className="text-sm text-muted-foreground">
-                  {completedLessons}/{totalLessons} Lessons
-                </span>
+                <div className="flex items-center gap-2">
+                  <Star className="h-5 w-5 text-yellow-500" />
+                  <span>Level {user?.level}</span>
+                  <span className="text-sm text-muted-foreground">
+                    ({user?.xp} XP)
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Star className="h-5 w-5 text-yellow-500" />
-                <span>Level {user?.level}</span>
-                <span className="text-sm text-muted-foreground">
-                  ({user?.xp} XP)
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Lessons List */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Learning Path</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[600px] pr-4">
-                  {lessonsLoading ? (
-                    <div className="text-center py-4">Loading lessons...</div>
-                  ) : (
-                    <Accordion
-                      type="single"
-                      collapsible
-                      value={selectedLesson?.toString()}
-                      onValueChange={(value) =>
-                        setSelectedLesson(value ? parseInt(value) : null)
-                      }
-                    >
-                      {lessons.map((lesson) => {
-                        const locked = isLessonLocked(lesson);
-                        const completed = lesson.userProgress?.[0]?.completed;
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Learning Path</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[600px] pr-4">
+                    {lessonsLoading ? (
+                      <div className="text-center py-4">Loading lessons...</div>
+                    ) : (
+                      <Accordion
+                        type="single"
+                        collapsible
+                        value={selectedLesson?.toString()}
+                        onValueChange={(value) =>
+                          setSelectedLesson(value ? parseInt(value) : null)
+                        }
+                      >
+                        {lessons.map((lesson) => {
+                          const locked = isLessonLocked(lesson);
+                          const completed = lesson.userProgress?.[0]?.completed;
 
-                        return (
-                          <AccordionItem
-                            key={lesson.id}
-                            value={lesson.id.toString()}
-                            className={locked ? "opacity-50" : ""}
-                          >
-                            <AccordionTrigger className="hover:no-underline">
-                              <div className="flex items-center gap-2">
-                                {completed ? (
-                                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                ) : locked ? (
-                                  <Lock className="h-5 w-5" />
-                                ) : null}
-                                <span>{lesson.title}</span>
-                                <Badge
-                                  variant="secondary"
-                                  className={getProgressColor(lesson.difficulty)}
-                                >
-                                  {lesson.difficulty}
-                                </Badge>
-                                <Badge variant="outline">+{lesson.xpReward} XP</Badge>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <div className="space-y-4 p-4">
-                                <p className="text-sm text-muted-foreground">
-                                  {lesson.description}
-                                </p>
-                                {!locked && !completed && (
-                                  <Button
-                                    onClick={() =>
-                                      window.location.href = `/lesson/${lesson.id}`
-                                    }
+                          return (
+                            <AccordionItem
+                              key={lesson.id}
+                              value={lesson.id.toString()}
+                              className={locked ? "opacity-50" : ""}
+                            >
+                              <AccordionTrigger className="hover:no-underline">
+                                <div className="flex items-center gap-2">
+                                  {completed ? (
+                                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                  ) : locked ? (
+                                    <Lock className="h-5 w-5" />
+                                  ) : null}
+                                  <span>{lesson.title}</span>
+                                  <Badge
+                                    variant="secondary"
+                                    className={getProgressColor(lesson.difficulty)}
                                   >
-                                    Start Lesson
-                                  </Button>
-                                )}
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        );
-                      })}
-                    </Accordion>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
+                                    {lesson.difficulty}
+                                  </Badge>
+                                  <Badge variant="outline">+{lesson.xpReward} XP</Badge>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <div className="space-y-4 p-4">
+                                  <p className="text-sm text-muted-foreground">
+                                    {lesson.description}
+                                  </p>
+                                  {!locked && !completed && (
+                                    <Button
+                                      onClick={() =>
+                                        window.location.href = `/lesson/${lesson.id}`
+                                      }
+                                    >
+                                      Start Lesson
+                                    </Button>
+                                  )}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          );
+                        })}
+                      </Accordion>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Achievements */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Achievements</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[600px] pr-4">
-                  {achievementsLoading ? (
-                    <div className="text-center py-4">Loading achievements...</div>
-                  ) : (
-                    <div className="space-y-4">
-                      {achievements.map((achievement) => {
-                        const unlocked = achievement.userAchievements.length > 0;
-                        return (
-                          <div
-                            key={achievement.id}
-                            className={`p-4 rounded-lg border ${
-                              unlocked
-                                ? "bg-secondary"
-                                : "opacity-50 bg-background"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <Trophy
-                                className={`h-5 w-5 ${
-                                  unlocked ? "text-yellow-500" : "text-gray-500"
-                                }`}
-                              />
-                              <div>
-                                <h3 className="font-medium">{achievement.title}</h3>
-                                <p className="text-sm text-muted-foreground">
-                                  {achievement.description}
-                                </p>
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Achievements</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[600px] pr-4">
+                    {achievementsLoading ? (
+                      <div className="text-center py-4">Loading achievements...</div>
+                    ) : (
+                      <div className="space-y-4">
+                        {achievements.map((achievement) => {
+                          const unlocked = achievement.userAchievements.length > 0;
+                          return (
+                            <div
+                              key={achievement.id}
+                              className={`p-4 rounded-lg border ${
+                                unlocked
+                                  ? "bg-secondary"
+                                  : "opacity-50 bg-background"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Trophy
+                                  className={`h-5 w-5 ${
+                                    unlocked ? "text-yellow-500" : "text-gray-500"
+                                  }`}
+                                />
+                                <div>
+                                  <h3 className="font-medium">{achievement.title}</h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    {achievement.description}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="mt-2">
+                                <Badge variant="outline">
+                                  +{achievement.xpReward} XP
+                                </Badge>
                               </div>
                             </div>
-                            <div className="mt-2">
-                              <Badge variant="outline">
-                                +{achievement.xpReward} XP
-                              </Badge>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
