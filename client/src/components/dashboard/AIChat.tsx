@@ -4,7 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Send, TrendingUp, TrendingDown, AlertTriangle, BarChart2, Clock, AlertCircle } from "lucide-react";
 
 type Message = {
   role: "user" | "assistant";
@@ -47,7 +48,7 @@ export default function AIChat({ symbol }: AIAnalysisProps) {
 
     const analysisMessage: Message = { 
       role: "user", 
-      content: `Please analyze ${symbol} stock.` 
+      content: `Analyze ${symbol} stock` 
     };
     setMessages((prev) => [...prev, analysisMessage]);
 
@@ -57,20 +58,31 @@ export default function AIChat({ symbol }: AIAnalysisProps) {
         data: {},
       });
 
-      const formattedContent = `
-Analysis for ${symbol}:
+      const getSentimentIcon = (sentiment: string) => {
+        if (sentiment.includes('bullish')) return '📈';
+        if (sentiment.includes('bearish')) return '📉';
+        return '➖';
+      };
 
-${analysis.analysis}
+      const getRiskIcon = (risk: string) => {
+        switch(risk.toLowerCase()) {
+          case 'low': return '🟢';
+          case 'medium': return '🟡';
+          case 'high': return '🔴';
+          default: return '⚪';
+        }
+      };
 
-Key Metrics:
-• sentiment: ${analysis.sentiment}
-  Investor sentiment is ${analysis.sentiment.toLowerCase()} based on market data and news analysis.
+      const formattedContent = `${getSentimentIcon(analysis.sentiment)} Analysis for ${symbol}
 
-• momentum: ${analysis.shortTermOutlook}
-  ${analysis.keyFactors[0] || 'Market shows varying levels of momentum.'}
+🎯 Recommendation: ${analysis.recommendation.toUpperCase()}
+📊 Confidence: ${analysis.confidence}/10
+${getRiskIcon(analysis.risk)} Risk Level: ${analysis.risk}
 
-• risk: ${analysis.risk}
-  Potential risks include ${analysis.keyFactors.slice(-1)[0] || 'market volatility and external factors.'}`
+Key Insights:
+${analysis.keyFactors.slice(0, 3).map(f => `• ${f}`).join('\n')}
+
+Outlook: ${analysis.shortTermOutlook}`;
 
       setMessages((prev) => [
         ...prev,
@@ -86,7 +98,7 @@ Key Metrics:
   };
 
   return (
-    <Card className="h-[600px] flex flex-col">
+    <Card className="h-[600px] flex flex-col bg-background">
       <div className="p-4 border-b flex justify-between items-center">
         <h2 className="text-lg font-semibold">AI Assistant</h2>
         {symbol && (
@@ -99,7 +111,9 @@ Key Metrics:
           >
             {isAnalyzing ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : null}
+            ) : (
+              <BarChart2 className="h-4 w-4 mr-2" />
+            )}
             Analyze {symbol}
           </Button>
         )}
@@ -115,13 +129,13 @@ Key Metrics:
               }`}
             >
               <div
-                className={`rounded-lg px-3 py-2 text-sm max-w-[85%] ${
+                className={`rounded-lg px-4 py-3 max-w-[85%] ${
                   message.role === "assistant"
-                    ? "bg-muted text-muted-foreground"
+                    ? "bg-card text-card-foreground shadow-sm"
                     : "bg-primary text-primary-foreground"
                 }`}
               >
-                <pre className="font-sans whitespace-pre-wrap">
+                <pre className="font-sans whitespace-pre-wrap text-sm leading-relaxed">
                   {message.content}
                 </pre>
               </div>
@@ -130,20 +144,20 @@ Key Metrics:
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t">
+      <div className="p-4 border-t bg-background">
         <div className="flex gap-2">
           <Input
             placeholder="Ask me anything about trading..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleSend()}
-            className="h-8"
+            className="h-10"
           />
           <Button
             size="icon"
             onClick={handleSend}
             disabled={isChatting || !input.trim()}
-            className="h-8 w-8"
+            className="h-10 w-10"
           >
             {isChatting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
