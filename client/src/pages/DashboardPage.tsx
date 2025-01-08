@@ -63,10 +63,10 @@ export default function DashboardPage() {
               </Card>
             </div>
 
-            <div className="col-span-12 md:col-span-3 flex flex-col space-y-6">
-              {selectedSymbol && <SentimentPanel symbol={selectedSymbol} />}
-              <Card className="flex-1 p-4">
-                <div className="h-[600px]">
+            <div className="col-span-12 md:col-span-3">
+              {selectedSymbol && <SentimentPanel symbol={selectedSymbol} className="mb-6" />}
+              <Card className="h-[calc(600px+2rem)] p-4">
+                <div className="h-full">
                   <AIChat symbol={selectedSymbol} />
                 </div>
               </Card>
