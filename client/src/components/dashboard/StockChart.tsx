@@ -11,13 +11,14 @@ import {
 import { useMarketData } from "@/hooks/use-market-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AlertCircle } from "lucide-react";
 
 type StockChartProps = {
   symbol: string;
 };
 
 export default function StockChart({ symbol }: StockChartProps) {
-  const { quote, isLoading } = useMarketData(symbol);
+  const { quote, isLoading, error } = useMarketData(symbol);
   const [priceHistory, setPriceHistory] = useState<Array<{ time: string; price: number }>>([]);
 
   useEffect(() => {
@@ -34,6 +35,24 @@ export default function StockChart({ symbol }: StockChartProps) {
 
   if (isLoading) {
     return <Skeleton className="w-full h-[400px]" />;
+  }
+
+  if (error?.message?.includes("Alpaca API credentials")) {
+    return (
+      <Card className="h-[400px]">
+        <CardContent className="h-full flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto" />
+            <div className="space-y-2">
+              <h3 className="font-semibold">Setup Required</h3>
+              <p className="text-sm text-muted-foreground">
+                Please configure your Alpaca API credentials to view market data.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   if (!quote) {
