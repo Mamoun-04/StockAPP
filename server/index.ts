@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { createServer } from "net";
 
 const app = express();
 app.use(express.json());
@@ -57,10 +58,36 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client
-  const PORT = 5000;
-  server.listen(PORT, "0.0.0.0", () => {
-    log(`serving on port ${PORT}`);
-  });
+  // Function to test if a port is available
+  const isPortAvailable = (port: number): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const tester = createServer()
+        .once('error', () => resolve(false))
+        .once('listening', () => {
+          tester.once('close', () => resolve(true))
+            .close();
+        })
+        .listen(port, '0.0.0.0');
+    });
+  };
+
+  // Try to find an available port starting from 5000
+  const findAvailablePort = async (startPort: number = 5000): Promise<number> => {
+    for (let port = startPort; port < startPort + 10; port++) {
+      if (await isPortAvailable(port)) {
+        return port;
+      }
+    }
+    throw new Error('No available ports found');
+  };
+
+  try {
+    const port = await findAvailablePort();
+    server.listen(port, "0.0.0.0", () => {
+      log(`Server started successfully on port ${port}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
 })();
