@@ -23,33 +23,52 @@ export default function StockChart({ symbol }: StockChartProps) {
   const { quote, isLoading, fetchHistoricalData } = useMarketData(symbol);
   const [selectedRange, setSelectedRange] = useState<TimeRange>("1D");
   const [chartData, setChartData] = useState<Array<{ time: string; price: number }>>([]);
+  const [error, setError] = useState<string | null>(null);
 
+  // Handle real-time updates for 1D view
   useEffect(() => {
-    if (quote) {
-      if (selectedRange === "1D") {
-        // For intraday, update in real-time
-        setChartData((prev) => {
-          const newHistory = [...prev, { time: new Date().toLocaleTimeString(), price: quote.price }];
-          if (newHistory.length > 100) {
-            return newHistory.slice(-100);
-          }
-          return newHistory;
-        });
-      }
+    if (selectedRange === "1D" && quote) {
+      setChartData((prev) => {
+        const newData = [...prev, { 
+          time: new Date().toLocaleTimeString(), 
+          price: quote.price 
+        }];
+        return newData.slice(-100); // Keep last 100 points
+      });
     }
   }, [quote, selectedRange]);
 
+  // Handle historical data fetching
   useEffect(() => {
     async function updateHistoricalData() {
-      if (symbol && selectedRange !== "1D") {
+      try {
+        setError(null);
+        if (!symbol) return;
+
+        // Clear existing data when changing time range
+        setChartData([]);
+
+        if (selectedRange === "1D") {
+          // For 1D view, start with current price
+          setChartData([{
+            time: new Date().toLocaleTimeString(),
+            price: quote?.price || 0
+          }]);
+          return;
+        }
+
         const data = await fetchHistoricalData(symbol, selectedRange);
-        if (data) {
+        if (data && data.length > 0) {
           setChartData(data);
         }
+      } catch (err) {
+        setError("Failed to load historical data");
+        console.error(err);
       }
     }
+
     updateHistoricalData();
-  }, [symbol, selectedRange, fetchHistoricalData]);
+  }, [symbol, selectedRange, fetchHistoricalData, quote]);
 
   if (isLoading) {
     return <Skeleton className="w-full h-[400px]" />;
@@ -69,7 +88,10 @@ export default function StockChart({ symbol }: StockChartProps) {
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <span>{symbol}</span>
-            <Select value={selectedRange} onValueChange={(value) => setSelectedRange(value as TimeRange)}>
+            <Select 
+              value={selectedRange} 
+              onValueChange={(value) => setSelectedRange(value as TimeRange)}
+            >
               <SelectTrigger className="w-[100px]">
                 <SelectValue />
               </SelectTrigger>
@@ -98,33 +120,43 @@ export default function StockChart({ symbol }: StockChartProps) {
       </CardHeader>
       <CardContent>
         <div className="h-[400px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="time"
-                tick={{ fontSize: 12 }}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                domain={["auto", "auto"]}
-                tick={{ fontSize: 12 }}
-                width={80}
-                tickFormatter={(value) => `$${value.toFixed(2)}`}
-              />
-              <Tooltip
-                formatter={(value: number) => [`$${value.toFixed(2)}`, "Price"]}
-                labelFormatter={(label) => `Time: ${label}`}
-              />
-              <Line
-                type="monotone"
-                dataKey="price"
-                stroke={isPositive ? "#22c55e" : "#ef4444"}
-                dot={false}
-                strokeWidth={2}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {error ? (
+            <div className="flex items-center justify-center h-full text-destructive">
+              {error}
+            </div>
+          ) : chartData.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <Skeleton className="w-full h-full" />
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="time"
+                  tick={{ fontSize: 12 }}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  domain={["auto", "auto"]}
+                  tick={{ fontSize: 12 }}
+                  width={80}
+                  tickFormatter={(value) => `$${value.toFixed(2)}`}
+                />
+                <Tooltip
+                  formatter={(value: number) => [`$${value.toFixed(2)}`, "Price"]}
+                  labelFormatter={(label) => `Time: ${label}`}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="price"
+                  stroke={isPositive ? "#22c55e" : "#ef4444"}
+                  dot={false}
+                  strokeWidth={2}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </CardContent>
     </Card>
