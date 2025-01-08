@@ -8,7 +8,7 @@ import Portfolio from "@/components/dashboard/Portfolio";
 import AIChat from "@/components/dashboard/AIChat";
 import { StockSearch } from "@/components/ui/stock-search";
 import TradePanel from "@/components/dashboard/TradePanel";
-import { LogOut, Book } from "lucide-react";
+import { LogOut, BookOpen, LineChart, Users } from "lucide-react";
 
 export default function DashboardPage() {
   const { user, logout } = useUser();
@@ -16,50 +16,74 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold">Trading for Beginners</h1>
+      {/* Top Navigation */}
+      <nav className="border-b bg-white dark:bg-gray-900">
+        <div className="max-w-screen-2xl mx-auto px-4">
+          <div className="flex justify-between h-16 items-center">
+            <div className="flex items-center space-x-8">
+              <h1 className="text-xl font-bold">Trading Platform</h1>
+              <div className="hidden md:flex space-x-4">
+                <Link href="/study">
+                  <Button variant="ghost" className="flex items-center">
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Study
+                  </Button>
+                </Link>
+                <Link href="/feed">
+                  <Button variant="ghost" className="flex items-center">
+                    <LineChart className="h-4 w-4 mr-2" />
+                    Feed
+                  </Button>
+                </Link>
+                <Link href="/portfolio">
+                  <Button variant="ghost" className="flex items-center">
+                    <Users className="h-4 w-4 mr-2" />
+                    Portfolio
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <Link href="/terms">
-                <Button variant="outline" size="sm">
-                  <Book className="h-4 w-4 mr-2" />
-                  Trading Terms
-                </Button>
-              </Link>
-              <Button variant="ghost" size="sm" onClick={() => logout()}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+            <Button variant="ghost" size="sm" onClick={() => logout()}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Main Content */}
+      <main className="max-w-screen-2xl mx-auto px-4 py-6">
         <div className="grid grid-cols-12 gap-6">
-          {/* Left column */}
-          <div className="col-span-12 lg:col-span-8 space-y-6">
-            <Card className="p-6">
-              <StockSearch value={selectedSymbol} onSelect={setSelectedSymbol} />
+          {/* Left Sidebar - Portfolio */}
+          <div className="col-span-12 md:col-span-2 space-y-4">
+            <Card className="p-4">
+              <h2 className="text-lg font-semibold mb-4">Positions</h2>
+              <div className="space-y-2">
+                <Portfolio />
+              </div>
+            </Card>
+          </div>
+
+          {/* Main Content Area */}
+          <div className="col-span-12 md:col-span-7 space-y-6">
+            {/* Stock Search and Chart */}
+            <Card className="p-4">
+              <div className="mb-4">
+                <StockSearch value={selectedSymbol} onSelect={setSelectedSymbol} />
+              </div>
               {selectedSymbol && <StockChart symbol={selectedSymbol} />}
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="p-6">
-                <Portfolio />
-              </Card>
-              <Card className="p-6">
-                <TradePanel symbol={selectedSymbol} />
-              </Card>
-            </div>
+            {/* Trade Panel */}
+            <Card className="p-4">
+              <TradePanel symbol={selectedSymbol} />
+            </Card>
           </div>
 
-          {/* Right column */}
-          <div className="col-span-12 lg:col-span-4 space-y-6">
-            <Card className="p-6">
+          {/* Right Sidebar - Feed/Chat */}
+          <div className="col-span-12 md:col-span-3 space-y-4">
+            <Card className="p-4 h-full">
+              <h2 className="text-lg font-semibold mb-4">Market Feed</h2>
               <AIChat symbol={selectedSymbol} />
             </Card>
           </div>
