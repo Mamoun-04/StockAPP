@@ -45,6 +45,12 @@ export default function AIChat({ symbol }: AIAnalysisProps) {
   const handleAnalyze = async () => {
     if (!symbol) return;
 
+    const analysisMessage: Message = { 
+      role: "user", 
+      content: `Please analyze ${symbol} stock.` 
+    };
+    setMessages((prev) => [...prev, analysisMessage]);
+
     try {
       const analysis = await analyze({
         symbol,
@@ -52,15 +58,19 @@ export default function AIChat({ symbol }: AIAnalysisProps) {
       });
 
       const formattedContent = `
-${analysis.summary}
+Analysis for ${symbol}:
+
+${analysis.analysis}
 
 Key Metrics:
-• Sentiment: ${analysis.metrics.sentiment.value}
-  ${analysis.metrics.sentiment.explanation}
-• Momentum: ${analysis.metrics.momentum.value}
-  ${analysis.metrics.momentum.explanation}
-• Risk: ${analysis.metrics.risk.value}
-  ${analysis.metrics.risk.explanation}`;
+• sentiment: ${analysis.sentiment}
+  Investor sentiment is ${analysis.sentiment.toLowerCase()} based on market data and news analysis.
+
+• momentum: ${analysis.shortTermOutlook}
+  ${analysis.keyFactors[0] || 'Market shows varying levels of momentum.'}
+
+• risk: ${analysis.risk}
+  Potential risks include ${analysis.keyFactors.slice(-1)[0] || 'market volatility and external factors.'}`
 
       setMessages((prev) => [
         ...prev,
@@ -68,6 +78,10 @@ Key Metrics:
       ]);
     } catch (error) {
       console.error("Analysis error:", error);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Sorry, I encountered an error while analyzing the stock. Please try again later." },
+      ]);
     }
   };
 
