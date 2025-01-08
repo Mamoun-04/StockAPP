@@ -1,32 +1,74 @@
 import OpenAI from "openai";
 import type { Express } from "express";
+import axios from "axios";
+import * as cheerio from "cheerio";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+async function scrapeFinancialData(symbol: string) {
+  try {
+    // Fetch from Yahoo Finance
+    const response = await axios.get(`https://finance.yahoo.com/quote/${symbol}`);
+    const $ = cheerio.load(response.data);
+
+    // Extract key data points
+    const marketPrice = $('[data-test="qsp-price"]').first().text();
+    const priceChange = $('[data-test="qsp-price-change"]').first().text();
+
+    // Get news headlines
+    const headlines = $('h3')
+      .map((_, el) => $(el).text())
+      .get()
+      .slice(0, 5)
+      .join('\n');
+
+    return {
+      marketPrice,
+      priceChange,
+      headlines
+    };
+  } catch (error) {
+    console.error('Scraping error:', error);
+    return null;
+  }
+}
 
 export function setupOpenAIRoutes(app: Express) {
   app.post("/api/ai/analyze", async (req, res) => {
     try {
       const { symbol } = req.body;
 
+      // Fetch real market data
+      const marketData = await scrapeFinancialData(symbol);
+      if (!marketData) {
+        throw new Error("Failed to fetch market data");
+      }
+
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: `You are a financial analyst expert. Provide a concise analysis of ${symbol} stock with these key points:
-              - Current market sentiment
-              - Key strengths and potential risks
-              - Notable metrics or recent events
+            content: `You are a financial analyst expert. Analyze ${symbol} stock based on the following real-time data:
+              Price: ${marketData.marketPrice}
+              Price Change: ${marketData.priceChange}
+              Recent Headlines:
+              ${marketData.headlines}
 
-              Format your response as a JSON object:
+              Provide a concise analysis with:
+              1. Overall sentiment (bullish/neutral/bearish)
+              2. Rating score (1-10)
+              3. Trading recommendation (buy/hold/sell)
+              4. Key reasons for the recommendation
+
+              Format your response as a JSON object with:
               {
-                "summary": "Brief 1-2 sentence overview",
-                "metrics": {
-                  "sentiment": {"value": "string", "explanation": "string"},
-                  "momentum": {"value": "string", "explanation": "string"},
-                  "risk": {"value": "string", "explanation": "string"}
-                }
+                "sentiment": "bullish" | "neutral" | "bearish",
+                "rating": number,
+                "recommendation": "buy" | "hold" | "sell",
+                "analysis": string,
+                "reasons": string[]
               }`,
           },
           {
@@ -94,7 +136,6 @@ export function setupOpenAIRoutes(app: Express) {
               - Providing factual market information
               - Never making specific buy/sell recommendations
               - Being concise and clear in your explanations
-
               Format your response as a JSON object:
               {
                 "content": "Your response here"
