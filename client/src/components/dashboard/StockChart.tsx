@@ -11,26 +11,45 @@ import {
 import { useMarketData } from "@/hooks/use-market-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type StockChartProps = {
   symbol: string;
 };
 
+type TimeRange = "1D" | "1W" | "1M" | "3M" | "1Y" | "5Y";
+
 export default function StockChart({ symbol }: StockChartProps) {
-  const { quote, isLoading } = useMarketData(symbol);
-  const [priceHistory, setPriceHistory] = useState<Array<{ time: string; price: number }>>([]);
+  const { quote, historicalData, isLoading, fetchHistoricalData } = useMarketData(symbol);
+  const [selectedRange, setSelectedRange] = useState<TimeRange>("1D");
+  const [chartData, setChartData] = useState<Array<{ time: string; price: number }>>([]);
 
   useEffect(() => {
     if (quote) {
-      setPriceHistory((prev) => {
-        const newHistory = [...prev, { time: new Date().toLocaleTimeString(), price: quote.price }];
-        if (newHistory.length > 100) {
-          return newHistory.slice(-100);
-        }
-        return newHistory;
-      });
+      if (selectedRange === "1D") {
+        // For intraday, update in real-time
+        setChartData((prev) => {
+          const newHistory = [...prev, { time: new Date().toLocaleTimeString(), price: quote.price }];
+          if (newHistory.length > 100) {
+            return newHistory.slice(-100);
+          }
+          return newHistory;
+        });
+      }
     }
-  }, [quote]);
+  }, [quote, selectedRange]);
+
+  useEffect(() => {
+    if (symbol && selectedRange !== "1D") {
+      fetchHistoricalData(symbol, selectedRange);
+    }
+  }, [symbol, selectedRange]);
+
+  useEffect(() => {
+    if (historicalData) {
+      setChartData(historicalData);
+    }
+  }, [historicalData]);
 
   if (isLoading) {
     return <Skeleton className="w-full h-[400px]" />;
@@ -48,7 +67,22 @@ export default function StockChart({ symbol }: StockChartProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>{symbol}</span>
+          <div className="flex items-center gap-4">
+            <span>{symbol}</span>
+            <Select value={selectedRange} onValueChange={(value) => setSelectedRange(value as TimeRange)}>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1D">1 Day</SelectItem>
+                <SelectItem value="1W">1 Week</SelectItem>
+                <SelectItem value="1M">1 Month</SelectItem>
+                <SelectItem value="3M">3 Months</SelectItem>
+                <SelectItem value="1Y">1 Year</SelectItem>
+                <SelectItem value="5Y">5 Years</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-2xl">${quote.price.toFixed(2)}</span>
             <span
@@ -65,7 +99,7 @@ export default function StockChart({ symbol }: StockChartProps) {
       <CardContent>
         <div className="h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={priceHistory}>
+            <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="time"

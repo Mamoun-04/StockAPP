@@ -33,6 +33,11 @@ type TradeOrder = {
   limitPrice?: number;
 };
 
+type HistoricalData = {
+  time: string;
+  price: number;
+}[];
+
 export function useMarketData(symbol?: string) {
   const { toast } = useToast();
 
@@ -48,6 +53,19 @@ export function useMarketData(symbol?: string) {
     },
     enabled: !!symbol,
     refetchInterval: 5000 // Refresh every 5 seconds
+  });
+
+  const historicalData = useQuery({
+    queryKey: ['/api/market/historical', symbol],
+    queryFn: async () => {
+      if (!symbol) return null;
+      const res = await fetch(`/api/market/historical/${symbol}`, {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json() as Promise<HistoricalData>;
+    },
+    enabled: false // Only fetch when explicitly called
   });
 
   const positions = useQuery({
@@ -111,13 +129,36 @@ export function useMarketData(symbol?: string) {
     }
   });
 
+  const fetchHistoricalData = async (symbol: string, timeRange: string) => {
+    try {
+      const response = await fetch(`/api/market/historical/${symbol}?range=${timeRange}`, {
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      return await response.json() as Promise<HistoricalData>;
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Failed to fetch historical data",
+        description: error.message
+      });
+      return null;
+    }
+  };
+
   return {
     quote: quote.data,
     positions: positions.data,
     account: account.data,
+    historicalData: historicalData.data,
     isLoading: quote.isLoading || positions.isLoading || account.isLoading,
     error: quote.error || positions.error || account.error,
     placeTrade: tradeMutation.mutateAsync,
-    isTradePending: tradeMutation.isPending
+    isTradePending: tradeMutation.isPending,
+    fetchHistoricalData
   };
 }
