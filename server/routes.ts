@@ -5,6 +5,7 @@ import { setupAlpacaRoutes } from "./alpaca";
 import { setupOpenAIRoutes } from "./openai";
 import { setupQuizRoutes } from "./quiz";
 import { setupLearningRoutes } from "./learning";
+import { setupSocialRoutes } from "./social";
 import session from "express-session";
 import passport from "passport";
 
@@ -25,8 +26,9 @@ export function registerRoutes(app: Express): Server {
   setupAuth(app);
   setupAlpacaRoutes(app);
   setupOpenAIRoutes(app);
-  setupQuizRoutes(app); // This line registers all quiz routes
-  setupLearningRoutes(app); // Register learning routes
+  setupQuizRoutes(app);
+  setupLearningRoutes(app);
+  setupSocialRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

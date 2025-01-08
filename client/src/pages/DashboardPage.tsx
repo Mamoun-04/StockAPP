@@ -26,12 +26,14 @@ export default function DashboardPage() {
       <main className="flex-grow p-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-12 gap-6">
+            {/* Portfolio Section */}
             <div className="col-span-12 md:col-span-3">
               <Card className="p-4">
                 <Portfolio />
               </Card>
             </div>
 
+            {/* Chart and Trade Panel Section */}
             <div className="col-span-12 md:col-span-6">
               <Card className="p-4 mb-6">
                 <div className="mb-4">
@@ -63,10 +65,15 @@ export default function DashboardPage() {
               </Card>
             </div>
 
+            {/* AI Section */}
             <div className="col-span-12 md:col-span-3">
-              {selectedSymbol && <SentimentPanel symbol={selectedSymbol} className="mb-6" />}
-              <Card className="h-[calc(600px+2rem)] p-4">
-                <div className="h-full">
+              {selectedSymbol && (
+                <div className="mb-6">
+                  <SentimentPanel symbol={selectedSymbol} />
+                </div>
+              )}
+              <Card>
+                <div className="h-[500px] overflow-hidden">
                   <AIChat symbol={selectedSymbol} />
                 </div>
               </Card>

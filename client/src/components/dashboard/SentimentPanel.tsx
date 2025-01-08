@@ -29,8 +29,8 @@ export default function SentimentPanel({ symbol, className }: SentimentPanelProp
 
   if (isAnalyzing) {
     return (
-      <Card className={cn("w-full min-h-[300px]", className)}>
-        <CardContent className="pt-6 flex justify-center items-center h-full">
+      <Card className={cn("h-[200px]", className)}>
+        <CardContent className="h-full flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
@@ -51,81 +51,62 @@ export default function SentimentPanel({ symbol, className }: SentimentPanelProp
     }
   };
 
-  const getConfidenceColor = (score: number) => {
-    if (score >= 7) return 'text-green-500';
-    if (score >= 4) return 'text-yellow-500';
-    return 'text-red-500';
-  };
-
-  const getSentimentIcon = (sentiment: string) => {
-    if (sentiment.includes('bullish')) {
-      return <TrendingUp className="h-6 w-6 text-green-500" />;
-    }
-    if (sentiment.includes('bearish')) {
-      return <TrendingDown className="h-6 w-6 text-red-500" />;
-    }
-    return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
-  };
-
-  const getRiskColor = (risk: string) => {
-    switch (risk.toLowerCase()) {
-      case 'low': return 'text-green-500';
-      case 'medium': return 'text-yellow-500';
-      case 'high': return 'text-red-500';
-      default: return 'text-muted-foreground';
-    }
-  };
-
   return (
-    <Card className={cn("w-full min-h-[300px]", className)}>
-      <CardContent className="pt-6 space-y-4">
-        <div className="text-center">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">Market Sentiment</h3>
-          <div className="flex items-center justify-center gap-2">
-            {getSentimentIcon(analysis.sentiment)}
-            <span className="text-xl font-semibold capitalize">
-              {analysis.sentiment}
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="text-center">
-            <h3 className="text-sm font-medium text-muted-foreground mb-2">Confidence</h3>
-            <div className={`text-2xl font-bold ${getConfidenceColor(analysis.confidence)}`}>
-              {analysis.confidence}/10
+    <Card className={cn("h-[200px]", className)}>
+      <CardContent className="h-full p-4">
+        <div className="flex flex-col h-full">
+          <div className="text-center mb-3">
+            <h3 className="text-sm font-medium text-muted-foreground">Market Sentiment</h3>
+            <div className="flex items-center justify-center gap-2 mt-1">
+              {analysis.sentiment.includes('bullish') ? (
+                <TrendingUp className="h-5 w-5 text-green-500" />
+              ) : analysis.sentiment.includes('bearish') ? (
+                <TrendingDown className="h-5 w-5 text-red-500" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              )}
+              <span className="text-lg font-semibold capitalize">
+                {analysis.sentiment}
+              </span>
             </div>
           </div>
 
-          <div className="text-center">
-            <h3 className="text-sm font-medium text-muted-foreground mb-2">Risk Level</h3>
-            <div className={`text-2xl font-bold capitalize ${getRiskColor(analysis.risk)}`}>
-              {analysis.risk}
+          <div className="grid grid-cols-2 gap-4 mb-3">
+            <div className="text-center">
+              <div className="text-sm font-medium text-muted-foreground">Confidence</div>
+              <div className={cn(
+                "text-lg font-bold mt-1",
+                analysis.confidence >= 7 ? "text-green-500" :
+                analysis.confidence >= 4 ? "text-yellow-500" :
+                "text-red-500"
+              )}>
+                {analysis.confidence}/10
+              </div>
+            </div>
+
+            <div className="text-center">
+              <div className="text-sm font-medium text-muted-foreground">Signal</div>
+              <div className={cn(
+                "text-lg font-semibold mt-1 uppercase",
+                getRecommendationColor(analysis.recommendation)
+              )}>
+                {analysis.recommendation}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="text-center">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">Recommendation</h3>
-          <div className={`text-2xl font-semibold uppercase ${getRecommendationColor(analysis.recommendation)}`}>
-            {analysis.recommendation}
+          <div className="flex-1 min-h-0">
+            <ScrollArea className="h-full pr-4">
+              <div className="space-y-1">
+                <h3 className="text-sm font-medium text-muted-foreground">Key Factors</h3>
+                <ul className="text-sm">
+                  {analysis.keyFactors.map((factor: string, index: number) => (
+                    <li key={index} className="text-muted-foreground py-0.5">• {factor}</li>
+                  ))}
+                </ul>
+              </div>
+            </ScrollArea>
           </div>
-        </div>
-
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Key Factors</h3>
-          <ScrollArea className="h-[120px]">
-            <ul className="text-sm space-y-1">
-              {analysis.keyFactors.map((factor: string, index: number) => (
-                <li key={index} className="text-muted-foreground">• {factor}</li>
-              ))}
-            </ul>
-          </ScrollArea>
-        </div>
-
-        <div className="text-center">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">Short-term Outlook</h3>
-          <p className="text-sm text-muted-foreground">{analysis.shortTermOutlook}</p>
         </div>
       </CardContent>
     </Card>

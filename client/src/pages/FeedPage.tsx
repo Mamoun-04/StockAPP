@@ -1,0 +1,166 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useUser } from "@/hooks/use-user";
+import Header from "@/components/ui/header";
+import Footer from "@/components/ui/footer";
+import { formatDistanceToNow } from "date-fns";
+
+type Post = {
+  id: number;
+  content: string;
+  type: string;
+  stockSymbol?: string;
+  tradeType?: string;
+  shares?: number;
+  price?: number;
+  profitLoss?: number;
+  createdAt: string;
+  author: {
+    id: number;
+    username: string;
+    displayName?: string;
+    avatarUrl?: string;
+  };
+  comments: {
+    id: number;
+    content: string;
+    createdAt: string;
+    author: {
+      id: number;
+      username: string;
+      displayName?: string;
+      avatarUrl?: string;
+    };
+  }[];
+};
+
+export default function FeedPage() {
+  const { user } = useUser();
+  const [newPost, setNewPost] = useState("");
+
+  const { data: posts = [], isLoading } = useQuery<Post[]>({
+    queryKey: ['/api/feed'],
+    enabled: !!user?.id,
+  });
+
+  const renderTradeInfo = (post: Post) => {
+    if (post.type !== 'trade' || !post.stockSymbol) return null;
+
+    const profitClass = post.profitLoss && post.profitLoss > 0 ? 'text-green-500' : 'text-red-500';
+
+    return (
+      <div className="mt-2 p-3 bg-secondary rounded-md">
+        <div className="flex justify-between items-center">
+          <span className="font-semibold">{post.stockSymbol}</span>
+          <span className="text-sm text-muted-foreground">{post.tradeType}</span>
+        </div>
+        {post.shares && post.price && (
+          <div className="mt-1 text-sm">
+            <span>{post.shares} shares @ ${post.price}</span>
+          </div>
+        )}
+        {post.profitLoss && (
+          <div className={`mt-1 font-semibold ${profitClass}`}>
+            {post.profitLoss > 0 ? '+' : ''}{post.profitLoss.toFixed(2)} USD
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <Header />
+      <main className="flex-grow p-8">
+        <div className="max-w-3xl mx-auto space-y-6">
+          {/* New Post Form */}
+          <Card>
+            <CardContent className="pt-6">
+              <Textarea
+                placeholder="Share your trading insights..."
+                value={newPost}
+                onChange={(e) => setNewPost(e.target.value)}
+                className="min-h-[100px] mb-4"
+              />
+              <div className="flex justify-end">
+                <Button>Post</Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Posts Feed */}
+          {isLoading ? (
+            <div className="text-center py-4">Loading posts...</div>
+          ) : (
+            <div className="space-y-4">
+              {posts.map((post) => (
+                <Card key={post.id}>
+                  <CardContent className="pt-6">
+                    {/* Post Header */}
+                    <div className="flex items-center space-x-4 mb-4">
+                      <Avatar>
+                        <AvatarImage src={post.author.avatarUrl} />
+                        <AvatarFallback>
+                          {post.author.displayName?.[0] || post.author.username[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-semibold">
+                          {post.author.displayName || post.author.username}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Post Content */}
+                    <div>
+                      <p className="text-sm">{post.content}</p>
+                      {renderTradeInfo(post)}
+                    </div>
+
+                    {/* Comments */}
+                    <div className="mt-4">
+                      <div className="text-sm font-medium text-muted-foreground mb-2">
+                        {post.comments.length} comments
+                      </div>
+                      <ScrollArea className="h-[200px]">
+                        <div className="space-y-4">
+                          {post.comments.map((comment) => (
+                            <div key={comment.id} className="flex space-x-3">
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={comment.author.avatarUrl} />
+                                <AvatarFallback>
+                                  {comment.author.displayName?.[0] || comment.author.username[0]}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="text-sm font-medium">
+                                  {comment.author.displayName || comment.author.username}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {comment.content}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}

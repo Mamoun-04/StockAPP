@@ -1,10 +1,14 @@
 import { pgTable, text, serial, integer, decimal, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { relations } from "drizzle-orm";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").unique().notNull(),
   password: text("password").notNull(),
+  displayName: text("display_name"),
+  bio: text("bio"),
+  avatarUrl: text("avatar_url"),
   alpacaApiKey: text("alpaca_api_key"),
   alpacaSecretKey: text("alpaca_secret_key"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -33,10 +37,10 @@ export const lessons = pgTable("lessons", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   content: text("content").notNull(),
-  difficulty: text("difficulty").notNull(), // beginner, intermediate, advanced
+  difficulty: text("difficulty").notNull(),
   xpReward: integer("xp_reward").notNull(),
-  prerequisites: integer("prerequisites").array(), // Array of lesson IDs required before this one
-  order: integer("order").notNull(), // Sequence in the learning path
+  prerequisites: integer("prerequisites").array(),
+  order: integer("order").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -45,7 +49,7 @@ export const userProgress = pgTable("user_progress", {
   userId: integer("user_id").references(() => users.id),
   lessonId: integer("lesson_id").references(() => lessons.id),
   completed: boolean("completed").default(false),
-  score: integer("score"), // Optional quiz score
+  score: integer("score"),
   completedAt: timestamp("completed_at"),
 });
 
@@ -53,9 +57,9 @@ export const achievements = pgTable("achievements", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  requirement: jsonb("requirement").notNull(), // JSON object with achievement criteria
+  requirement: jsonb("requirement").notNull(),
   xpReward: integer("xp_reward").notNull(),
-  icon: text("icon").notNull(), // Icon identifier
+  icon: text("icon").notNull(),
 });
 
 export const userAchievements = pgTable("user_achievements", {
@@ -69,7 +73,7 @@ export const quizSections = pgTable("quiz_sections", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  difficulty: text("difficulty").notNull(), // beginner, intermediate, advanced
+  difficulty: text("difficulty").notNull(),
   order: integer("order").notNull(),
 });
 
@@ -80,7 +84,7 @@ export const quizQuestions = pgTable("quiz_questions", {
   question: text("question").notNull(),
   correctAnswer: text("correct_answer").notNull(),
   wrongAnswers: text("wrong_answers").array().notNull(),
-  difficulty: text("difficulty").notNull(), // easy, medium, hard
+  difficulty: text("difficulty").notNull(),
   xpReward: integer("xp_reward").notNull(),
 });
 
@@ -104,12 +108,59 @@ export const userQuizAttempts = pgTable("user_quiz_attempts", {
   attemptedAt: timestamp("attempted_at").defaultNow(),
 });
 
+export const posts = pgTable("posts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  type: text("type").notNull(),
+  stockSymbol: text("stock_symbol"),
+  tradeType: text("trade_type"),
+  shares: decimal("shares"),
+  price: decimal("price"),
+  profitLoss: decimal("profit_loss"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const comments = pgTable("comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").references(() => posts.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const usersRelations = relations(users, ({ many }) => ({
+  posts: many(posts),
+  comments: many(comments),
+}));
+
+export const postsRelations = relations(posts, ({ one, many }) => ({
+  author: one(users, {
+    fields: [posts.userId],
+    references: [users.id],
+  }),
+  comments: many(comments),
+}));
+
+export const commentsRelations = relations(comments, ({ one }) => ({
+  post: one(posts, {
+    fields: [comments.postId],
+    references: [posts.id],
+  }),
+  author: one(users, {
+    fields: [comments.userId],
+    references: [users.id],
+  }),
+}));
+
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
-export const insertQuizQuestionSchema = createInsertSchema(quizQuestions);
-export const selectQuizQuestionSchema = createSelectSchema(quizQuestions);
-export const insertQuizSectionSchema = createInsertSchema(quizSections);
-export const selectQuizSectionSchema = createSelectSchema(quizSections);
+export const insertPostSchema = createInsertSchema(posts);
+export const selectPostSchema = createSelectSchema(posts);
+export const insertCommentSchema = createInsertSchema(comments);
+export const selectCommentSchema = createSelectSchema(comments);
 
 export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
@@ -123,3 +174,7 @@ export type QuizQuestion = typeof quizQuestions.$inferSelect;
 export type UserQuizAttempt = typeof userQuizAttempts.$inferSelect;
 export type QuizSection = typeof quizSections.$inferSelect;
 export type UserQuizProgress = typeof userQuizProgress.$inferSelect;
+export type InsertPost = typeof posts.$inferInsert;
+export type SelectPost = typeof posts.$inferSelect;
+export type InsertComment = typeof comments.$inferInsert;
+export type SelectComment = typeof comments.$inferSelect;
