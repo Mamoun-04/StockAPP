@@ -3,12 +3,14 @@ import { useState, useEffect } from "react";
 import { useAIChat } from "@/hooks/use-ai-chat";
 import { Loader2, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 type SentimentPanelProps = {
   symbol: string;
+  className?: string;
 };
 
-export default function SentimentPanel({ symbol }: SentimentPanelProps) {
+export default function SentimentPanel({ symbol, className }: SentimentPanelProps) {
   const [analysis, setAnalysis] = useState<any>(null);
   const { analyze, isAnalyzing } = useAIChat();
 
@@ -27,8 +29,8 @@ export default function SentimentPanel({ symbol }: SentimentPanelProps) {
 
   if (isAnalyzing) {
     return (
-      <Card className="w-full mb-4">
-        <CardContent className="pt-6 flex justify-center items-center h-[200px]">
+      <Card className={cn("w-full min-h-[300px]", className)}>
+        <CardContent className="pt-6 flex justify-center items-center h-full">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
@@ -75,8 +77,8 @@ export default function SentimentPanel({ symbol }: SentimentPanelProps) {
   };
 
   return (
-    <Card className="w-full mb-4">
-      <CardContent className="pt-6 space-y-6">
+    <Card className={cn("w-full min-h-[300px]", className)}>
+      <CardContent className="pt-6 space-y-4">
         <div className="text-center">
           <h3 className="text-sm font-medium text-muted-foreground mb-2">Market Sentiment</h3>
           <div className="flex items-center justify-center gap-2">
@@ -112,7 +114,7 @@ export default function SentimentPanel({ symbol }: SentimentPanelProps) {
 
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-muted-foreground">Key Factors</h3>
-          <ScrollArea className="h-24">
+          <ScrollArea className="h-[120px]">
             <ul className="text-sm space-y-1">
               {analysis.keyFactors.map((factor: string, index: number) => (
                 <li key={index} className="text-muted-foreground">• {factor}</li>
