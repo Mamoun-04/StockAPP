@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, KeyboardEvent, ChangeEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
@@ -9,31 +9,29 @@ type StockSearchProps = {
 
 export default function StockSearch({ onSelect }: StockSearchProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [results, setResults] = useState<
-    Array<{ symbol: string; name: string }>
-  >([]);
+  const [results, setResults] = useState<Array<{ symbol: string; name: string }>>([]);
   const [showResults, setShowResults] = useState(false);
 
   const handleSearch = async () => {
     if (!searchTerm.trim()) return;
 
     try {
-      // First try exact symbol match
-      const symbolResponse = await fetch(
-        `/api/stocks/search?q=${encodeURIComponent(searchTerm.toUpperCase())}`,
-      );
-      let symbolData = await symbolResponse.json();
+      // Create variations of the search term
+      const searchVariations = generateSearchVariations(searchTerm);
+      let allResults: Array<{ symbol: string; name: string }> = [];
 
-      // Then try company name search
-      const nameResponse = await fetch(
-        `/api/stocks/search?q=${encodeURIComponent(searchTerm.toLowerCase())}`,
-      );
-      let nameData = await nameResponse.json();
+      // Search with each variation
+      for (const variation of searchVariations) {
+        const response = await fetch(
+          `/api/stocks/search?q=${encodeURIComponent(variation)}`
+        );
+        const data = await response.json();
+        allResults = [...allResults, ...data];
+      }
 
-      // Combine results and remove duplicates
-      const combinedResults = [...symbolData, ...nameData];
+      // Remove duplicates
       const uniqueResults = Array.from(
-        new Map(combinedResults.map((stock) => [stock.symbol, stock])).values(),
+        new Map(allResults.map(stock => [stock.symbol, stock])).values()
       );
 
       // Sort results by relevance
@@ -46,16 +44,43 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
       setResults(sortedResults);
       setShowResults(true);
     } catch (err) {
-      console.error("Search error:", err);
+      console.error('Search error:', err);
       setResults([]);
     }
   };
 
-  // Calculate relevance score for sorting results
-  const getRelevanceScore = (
-    stock: { symbol: string; name: string },
-    search: string,
-  ) => {
+  const generateSearchVariations = (search: string): string[] => {
+    const variations = new Set<string>();
+    const searchLower = search.toLowerCase();
+
+    // Add original search term
+    variations.add(search);
+    variations.add(searchLower);
+    variations.add(search.toUpperCase());
+
+    // Add first 4 characters for longer terms
+    if (search.length > 4) {
+      variations.add(search.substring(0, 4));
+    }
+
+    // Handle common company name variations
+    if (searchLower.endsWith('le')) {
+      variations.add(searchLower.slice(0, -2) + 'l');  // e.g., "apple" -> "appl"
+    }
+    if (searchLower.endsWith('le ')) {
+      variations.add(searchLower.slice(0, -3) + 'l');  // Handle trailing space
+    }
+    if (searchLower.endsWith('gle')) {
+      variations.add(searchLower.slice(0, -3) + 'gl');  // e.g., "google" -> "googl"
+    }
+    if (searchLower.endsWith('gle ')) {
+      variations.add(searchLower.slice(0, -4) + 'gl');  // Handle trailing space
+    }
+
+    return Array.from(variations);
+  };
+
+  const getRelevanceScore = (stock: { symbol: string; name: string }, search: string): number => {
     const searchLower = search.toLowerCase();
     const symbolLower = stock.symbol.toLowerCase();
     const nameLower = stock.name.toLowerCase();
@@ -79,14 +104,38 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
     for (const word of searchWords) {
       if (word.length < 2) continue;
 
-      const symbolWordMatch = new RegExp(`\\b${word}`, "i").test(stock.symbol);
-      const nameWordMatch = new RegExp(`\\b${word}`, "i").test(stock.name);
+      const symbolWordMatch = new RegExp(`\\b${word}`, 'i').test(stock.symbol);
+      const nameWordMatch = new RegExp(`\\b${word}`, 'i').test(stock.name);
 
       if (symbolWordMatch) score += 40;
       if (nameWordMatch) score += 30;
     }
 
     return score;
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSearch();
+    }
+  };
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+
+    if (value.length >= 2) {
+      // Debounce the search
+      const timeoutId = setTimeout(() => {
+        handleSearch();
+      }, 300);
+
+      // Cleanup timeout on next change
+      return () => clearTimeout(timeoutId);
+    } else {
+      setShowResults(false);
+    }
   };
 
   const handleSelect = (symbol: string) => {
@@ -96,21 +145,6 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
     setShowResults(false);
   };
 
-  // Debounced search
-  let searchTimeout: NodeJS.Timeout;
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-
-    clearTimeout(searchTimeout);
-    if (e.target.value.length >= 2) {
-      searchTimeout = setTimeout(() => {
-        handleSearch();
-      }, 300); // 300ms delay
-    } else {
-      setShowResults(false);
-    }
-  };
-
   return (
     <div className="relative flex flex-col gap-2">
       <div className="flex gap-2">
@@ -118,7 +152,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
           placeholder="Search by company name or symbol (e.g., Apple or AAPL)"
           value={searchTerm}
           onChange={handleInputChange}
-          onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+          onKeyDown={handleKeyDown}
           className="flex-1"
         />
         <Button onClick={handleSearch}>
