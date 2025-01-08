@@ -9,7 +9,7 @@ import AIChat from "@/components/dashboard/AIChat";
 import { StockSearch } from "@/components/ui/stock-search";
 import TradePanel from "@/components/dashboard/TradePanel";
 import SentimentPanel from "@/components/dashboard/SentimentPanel";
-import { LogOut, BookOpen, LineChart, Users } from "lucide-react";
+import { LogOut, Users, BookOpen, LineChart } from "lucide-react";
 import { useStockRotation } from "@/hooks/use-stock-rotation";
 
 export default function DashboardPage() {
