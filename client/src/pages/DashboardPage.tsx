@@ -8,6 +8,7 @@ import Portfolio from "@/components/dashboard/Portfolio";
 import AIChat from "@/components/dashboard/AIChat";
 import { StockSearch } from "@/components/ui/stock-search";
 import TradePanel from "@/components/dashboard/TradePanel";
+import SentimentPanel from "@/components/dashboard/SentimentPanel";
 import { LogOut, BookOpen, LineChart, Users } from "lucide-react";
 import { useStockRotation } from "@/hooks/use-stock-rotation";
 
@@ -104,10 +105,10 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          {/* Right Sidebar - Feed/Chat */}
+          {/* Right Sidebar - Sentiment and AI Chat */}
           <div className="col-span-12 md:col-span-3 space-y-4">
+            {selectedSymbol && <SentimentPanel symbol={selectedSymbol} />}
             <Card className="p-4 h-full">
-              <h2 className="text-lg font-semibold mb-4">Market Feed</h2>
               <AIChat symbol={selectedSymbol} />
             </Card>
           </div>
