@@ -31,6 +31,12 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-8">
               <h1 className="text-xl font-bold">Trading Platform</h1>
               <div className="hidden md:flex space-x-4">
+                <Link href="/portfolio">
+                  <Button variant="ghost" className="flex items-center">
+                    <Users className="h-4 w-4 mr-2" />
+                    Portfolio
+                  </Button>
+                </Link>
                 <Link href="/study">
                   <Button variant="ghost" className="flex items-center">
                     <BookOpen className="h-4 w-4 mr-2" />
@@ -41,12 +47,6 @@ export default function DashboardPage() {
                   <Button variant="ghost" className="flex items-center">
                     <LineChart className="h-4 w-4 mr-2" />
                     Feed
-                  </Button>
-                </Link>
-                <Link href="/portfolio">
-                  <Button variant="ghost" className="flex items-center">
-                    <Users className="h-4 w-4 mr-2" />
-                    Portfolio
                   </Button>
                 </Link>
               </div>
