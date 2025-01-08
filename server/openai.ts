@@ -7,18 +7,31 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 export function setupOpenAIRoutes(app: Express) {
   app.post("/api/ai/analyze", async (req, res) => {
     try {
-      const { symbol, data } = req.body;
+      const { symbol } = req.body;
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: "You are a financial analyst expert. Analyze the given stock data and provide insights in a beginner-friendly way. Include key metrics explanation, potential risks and opportunities.",
+            content: `You are a financial analyst expert. Provide a concise analysis of ${symbol} stock with these key points:
+              - Current market sentiment
+              - Key strengths and potential risks
+              - Notable metrics or recent events
+
+              Format your response as a JSON object:
+              {
+                "summary": "Brief 1-2 sentence overview",
+                "metrics": {
+                  "sentiment": {"value": "string", "explanation": "string"},
+                  "momentum": {"value": "string", "explanation": "string"},
+                  "risk": {"value": "string", "explanation": "string"}
+                }
+              }`,
           },
           {
             role: "user",
-            content: `Please analyze ${symbol} with the following data: ${JSON.stringify(data)}`,
+            content: `Please analyze ${symbol} stock.`,
           },
         ],
         response_format: { type: "json_object" },
@@ -76,7 +89,16 @@ export function setupOpenAIRoutes(app: Express) {
         messages: [
           {
             role: "system",
-            content: "You are a helpful financial advisor assistant. Provide clear, beginner-friendly explanations about trading, investing, and financial markets.",
+            content: `You are a helpful financial advisor assistant. Your goal is to help users understand stock market concepts and make informed decisions by:
+              - Explaining concepts in simple terms with examples
+              - Providing factual market information
+              - Never making specific buy/sell recommendations
+              - Being concise and clear in your explanations
+
+              Format your response as a JSON object:
+              {
+                "content": "Your response here"
+              }`,
           },
           ...history,
           { role: "user", content: message },
@@ -96,7 +118,6 @@ export function setupOpenAIRoutes(app: Express) {
     }
   });
 
-  // Enhanced AI advisor endpoint
   app.post("/api/ai/advisor", async (req, res) => {
     try {
       const { question, context } = req.body;

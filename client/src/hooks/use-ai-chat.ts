@@ -97,8 +97,8 @@ export function useAIChat() {
     analyze: analyzeMutation.mutateAsync,
     explain: explainMutation.mutateAsync,
     chat: chatMutation.mutateAsync,
-    isAnalyzing: analyzeMutation.isLoading,
-    isExplaining: explainMutation.isLoading,
-    isChatting: chatMutation.isLoading
+    isAnalyzing: analyzeMutation.isPending,
+    isExplaining: explainMutation.isPending,
+    isChatting: chatMutation.isPending
   };
 }
