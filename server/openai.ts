@@ -8,26 +8,54 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 async function scrapeFinancialData(symbol: string) {
   try {
-    // Fetch from Yahoo Finance
-    const response = await axios.get(`https://finance.yahoo.com/quote/${symbol}`);
-    const $ = cheerio.load(response.data);
+    // Fetch from multiple sources for comprehensive analysis
+    const [yahooData, seekingAlphaData, marketWatchData] = await Promise.all([
+      axios.get(`https://finance.yahoo.com/quote/${symbol}`),
+      axios.get(`https://seekingalpha.com/symbol/${symbol}`),
+      axios.get(`https://www.marketwatch.com/investing/stock/${symbol}`)
+    ]).catch(() => [null, null, null]);
 
-    // Extract key data points
-    const marketPrice = $('[data-test="qsp-price"]').first().text();
-    const priceChange = $('[data-test="qsp-price-change"]').first().text();
-
-    // Get news headlines
-    const headlines = $('h3')
-      .map((_, el) => $(el).text())
-      .get()
-      .slice(0, 5)
-      .join('\n');
-
-    return {
-      marketPrice,
-      priceChange,
-      headlines
+    const data = {
+      marketMetrics: {},
+      newsHeadlines: [],
+      technicalIndicators: [],
+      analystOpinions: []
     };
+
+    // Parse Yahoo Finance
+    if (yahooData) {
+      const $ = cheerio.load(yahooData.data);
+      data.marketMetrics = {
+        price: $('[data-test="qsp-price"]').first().text(),
+        priceChange: $('[data-test="qsp-price-change"]').first().text(),
+        volume: $('[data-test="qsp-volume"]').first().text(),
+        peRatio: $('[data-test="qsp-pe-ratio"]').first().text(),
+      };
+
+      // Get news headlines
+      $('h3').each((_, el) => {
+        const headline = $(el).text().trim();
+        if (headline) data.newsHeadlines.push(headline);
+      });
+    }
+
+    // Parse Seeking Alpha for analyst opinions
+    if (seekingAlphaData) {
+      const $ = cheerio.load(seekingAlphaData.data);
+      $('.analyst-rating-summary').each((_, el) => {
+        data.analystOpinions.push($(el).text().trim());
+      });
+    }
+
+    // Parse MarketWatch for technical indicators
+    if (marketWatchData) {
+      const $ = cheerio.load(marketWatchData.data);
+      $('.technical-indicator').each((_, el) => {
+        data.technicalIndicators.push($(el).text().trim());
+      });
+    }
+
+    return data;
   } catch (error) {
     console.error('Scraping error:', error);
     return null;
@@ -39,7 +67,7 @@ export function setupOpenAIRoutes(app: Express) {
     try {
       const { symbol } = req.body;
 
-      // Fetch real market data
+      // Fetch comprehensive market data
       const marketData = await scrapeFinancialData(symbol);
       if (!marketData) {
         throw new Error("Failed to fetch market data");
@@ -50,25 +78,39 @@ export function setupOpenAIRoutes(app: Express) {
         messages: [
           {
             role: "system",
-            content: `You are a financial analyst expert. Analyze ${symbol} stock based on the following real-time data:
-              Price: ${marketData.marketPrice}
-              Price Change: ${marketData.priceChange}
-              Recent Headlines:
-              ${marketData.headlines}
+            content: `You are an expert financial analyst. Perform a comprehensive analysis of ${symbol} stock using the following data:
 
-              Provide a concise analysis with:
-              1. Overall sentiment (bullish/neutral/bearish)
-              2. Rating score (1-10)
-              3. Trading recommendation (buy/hold/sell)
-              4. Key reasons for the recommendation
+              Market Metrics:
+              ${JSON.stringify(marketData.marketMetrics, null, 2)}
+
+              Recent News Headlines:
+              ${marketData.newsHeadlines.slice(0, 5).join('\n')}
+
+              Technical Indicators:
+              ${marketData.technicalIndicators.join('\n')}
+
+              Analyst Opinions:
+              ${marketData.analystOpinions.join('\n')}
+
+              Provide a detailed analysis with:
+              1. Overall market sentiment (strongly bullish/bullish/neutral/bearish/strongly bearish)
+              2. Confidence score (1-10)
+              3. Trading recommendation (strong buy/buy/hold/sell/strong sell)
+              4. Risk assessment (low/medium/high)
+              5. Short-term outlook (1-3 months)
+              6. Key factors influencing the analysis
+              7. Potential catalysts to watch
 
               Format your response as a JSON object with:
               {
-                "sentiment": "bullish" | "neutral" | "bearish",
-                "rating": number,
-                "recommendation": "buy" | "hold" | "sell",
-                "analysis": string,
-                "reasons": string[]
+                "sentiment": string,
+                "confidence": number,
+                "recommendation": string,
+                "risk": string,
+                "shortTermOutlook": string,
+                "keyFactors": string[],
+                "catalysts": string[],
+                "analysis": string
               }`,
           },
           {
@@ -174,13 +216,13 @@ export function setupOpenAIRoutes(app: Express) {
             3. Highlighting key risks and considerations
             4. Suggesting next steps for learning
             5. Never making specific buy/sell recommendations
-
+            
             When explaining terms, always:
             - Start with a one-sentence definition
             - Break down the explanation into bullet points
             - Include a real-world example with numbers as one of the bullet points
             - List common pitfalls or misconceptions as bullet points
-
+            
             Respond in a JSON format with:
             {
               "advice": string[] (array of bullet points, first item being the definition),
