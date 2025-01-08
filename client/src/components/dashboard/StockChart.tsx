@@ -20,7 +20,7 @@ type StockChartProps = {
 type TimeRange = "1D" | "1W" | "1M" | "3M" | "1Y" | "5Y";
 
 export default function StockChart({ symbol }: StockChartProps) {
-  const { quote, historicalData, isLoading, fetchHistoricalData } = useMarketData(symbol);
+  const { quote, isLoading, fetchHistoricalData } = useMarketData(symbol);
   const [selectedRange, setSelectedRange] = useState<TimeRange>("1D");
   const [chartData, setChartData] = useState<Array<{ time: string; price: number }>>([]);
 
@@ -40,16 +40,16 @@ export default function StockChart({ symbol }: StockChartProps) {
   }, [quote, selectedRange]);
 
   useEffect(() => {
-    if (symbol && selectedRange !== "1D") {
-      fetchHistoricalData(symbol, selectedRange);
+    async function updateHistoricalData() {
+      if (symbol && selectedRange !== "1D") {
+        const data = await fetchHistoricalData(symbol, selectedRange);
+        if (data) {
+          setChartData(data);
+        }
+      }
     }
-  }, [symbol, selectedRange]);
-
-  useEffect(() => {
-    if (historicalData) {
-      setChartData(historicalData);
-    }
-  }, [historicalData]);
+    updateHistoricalData();
+  }, [symbol, selectedRange, fetchHistoricalData]);
 
   if (isLoading) {
     return <Skeleton className="w-full h-[400px]" />;
