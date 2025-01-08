@@ -34,175 +34,206 @@ declare global {
   }
 }
 
-export function setupAuth(app: Express) {
-  const MemoryStore = createMemoryStore(session);
-  const sessionSettings: session.SessionOptions = {
-    secret: process.env.REPL_ID || "trading-platform-secret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {},
-    store: new MemoryStore({
-      checkPeriod: 86400000, // prune expired entries every 24h
-    }),
-  };
-
-  if (app.get("env") === "production") {
-    app.set("trust proxy", 1);
-    sessionSettings.cookie = {
-      secure: true,
+export async function setupAuth(app: Express) {
+  try {
+    console.log("Setting up authentication...");
+    const MemoryStore = createMemoryStore(session);
+    const sessionSettings: session.SessionOptions = {
+      secret: process.env.REPL_ID || "trading-platform-secret",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {},
+      store: new MemoryStore({
+        checkPeriod: 86400000, // prune expired entries every 24h
+      }),
     };
-  }
 
-  app.use(session(sessionSettings));
-  app.use(passport.initialize());
-  app.use(passport.session());
+    if (app.get("env") === "production") {
+      app.set("trust proxy", 1);
+      sessionSettings.cookie = {
+        secure: true,
+      };
+    }
 
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
+    app.use(session(sessionSettings));
+    app.use(passport.initialize());
+    app.use(passport.session());
+
+    passport.use(
+      new LocalStrategy(async (username, password, done) => {
+        try {
+          console.log(`Attempting authentication for user: ${username}`);
+          const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.username, username))
+            .limit(1);
+
+          if (!user) {
+            return done(null, false, { message: "Incorrect username." });
+          }
+          const isMatch = await crypto.compare(password, user.password);
+          if (!isMatch) {
+            return done(null, false, { message: "Incorrect password." });
+          }
+          return done(null, user);
+        } catch (err) {
+          console.error("Authentication error:", err);
+          return done(err);
+        }
+      })
+    );
+
+    passport.serializeUser((user, done) => {
+      done(null, user.id);
+    });
+
+    passport.deserializeUser(async (id: number, done) => {
       try {
-        // Get full user object with all fields
         const [user] = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, id))
+          .limit(1);
+
+        if (!user) {
+          return done(new Error('User not found'));
+        }
+
+        done(null, user);
+      } catch (err) {
+        console.error("Deserialization error:", err);
+        done(err);
+      }
+    });
+
+    // Register route
+    app.post("/api/register", async (req, res, next) => {
+      try {
+        console.log("Processing registration request");
+        const result = insertUserSchema.safeParse(req.body);
+        if (!result.success) {
+          return res
+            .status(400)
+            .send("Invalid input: " + result.error.issues.map(i => i.message).join(", "));
+        }
+
+        const { username, password } = result.data;
+
+        const [existingUser] = await db
           .select()
           .from(users)
           .where(eq(users.username, username))
           .limit(1);
 
-        if (!user) {
-          return done(null, false, { message: "Incorrect username." });
+        if (existingUser) {
+          return res.status(400).send("Username already exists");
         }
-        const isMatch = await crypto.compare(password, user.password);
-        if (!isMatch) {
-          return done(null, false, { message: "Incorrect password." });
-        }
-        return done(null, user);
-      } catch (err) {
-        return done(err);
-      }
-    })
-  );
 
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
+        const hashedPassword = await crypto.hash(password);
 
-  passport.deserializeUser(async (id: number, done) => {
-    try {
-      // Get full user object with all fields including xp and level
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, id))
-        .limit(1);
+        const [newUser] = await db
+          .insert(users)
+          .values({
+            username,
+            password: hashedPassword,
+            xp: 0,
+            level: 1,
+          })
+          .returning();
 
-      if (!user) {
-        return done(new Error('User not found'));
-      }
-
-      done(null, user);
-    } catch (err) {
-      done(err);
-    }
-  });
-
-  app.post("/api/register", async (req, res, next) => {
-    try {
-      const result = insertUserSchema.safeParse(req.body);
-      if (!result.success) {
-        return res
-          .status(400)
-          .send("Invalid input: " + result.error.issues.map(i => i.message).join(", "));
-      }
-
-      const { username, password, alpacaApiKey, alpacaSecretKey } = result.data;
-
-      const [existingUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.username, username))
-        .limit(1);
-
-      if (existingUser) {
-        return res.status(400).send("Username already exists");
-      }
-
-      const hashedPassword = await crypto.hash(password);
-
-      const [newUser] = await db
-        .insert(users)
-        .values({
-          username,
-          password: hashedPassword,
-          alpacaApiKey,
-          alpacaSecretKey,
-          xp: 0,
-          level: 1,
-        })
-        .returning();
-
-      req.login(newUser, (err) => {
-        if (err) {
-          return next(err);
-        }
-        return res.json({
-          message: "Registration successful",
-          user: { 
-            id: newUser.id, 
-            username: newUser.username,
-            alpacaApiKey: newUser.alpacaApiKey,
-            alpacaSecretKey: newUser.alpacaSecretKey,
-            xp: newUser.xp,
-            level: newUser.level,
-          },
+        req.login(newUser, (err) => {
+          if (err) {
+            console.error("Login after registration failed:", err);
+            return next(err);
+          }
+          return res.json({
+            message: "Registration successful",
+            user: { 
+              id: newUser.id, 
+              username: newUser.username,
+              displayName: newUser.displayName,
+              education: newUser.education,
+              occupation: newUser.occupation,
+              bio: newUser.bio,
+              xp: newUser.xp,
+              level: newUser.level,
+            },
+          });
         });
-      });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
-      if (err) {
-        return next(err);
+      } catch (error) {
+        console.error("Registration error:", error);
+        next(error);
       }
-
-      if (!user) {
-        return res.status(400).send(info.message ?? "Login failed");
-      }
-
-      req.logIn(user, (err) => {
-        if (err) {
-          return next(err);
-        }
-
-        return res.json({
-          message: "Login successful",
-          user: {
-            id: user.id,
-            username: user.username,
-            alpacaApiKey: user.alpacaApiKey,
-            alpacaSecretKey: user.alpacaSecretKey,
-            xp: user.xp,
-            level: user.level,
-          },
-        });
-      });
-    })(req, res, next);
-  });
-
-  app.post("/api/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).send("Logout failed");
-      }
-      res.json({ message: "Logout successful" });
     });
-  });
 
-  app.get("/api/user", (req, res) => {
-    if (req.isAuthenticated()) {
-      return res.json(req.user);
-    }
-    res.status(401).send("Not logged in");
-  });
+    // Login route
+    app.post("/api/login", (req, res, next) => {
+      passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
+        if (err) {
+          console.error("Login error:", err);
+          return next(err);
+        }
+
+        if (!user) {
+          return res.status(400).send(info.message ?? "Login failed");
+        }
+
+        req.logIn(user, (err) => {
+          if (err) {
+            console.error("Login session creation failed:", err);
+            return next(err);
+          }
+
+          return res.json({
+            message: "Login successful",
+            user: {
+              id: user.id,
+              username: user.username,
+              displayName: user.displayName,
+              education: user.education,
+              occupation: user.occupation,
+              bio: user.bio,
+              xp: user.xp,
+              level: user.level,
+            },
+          });
+        });
+      })(req, res, next);
+    });
+
+    // Logout route
+    app.post("/api/logout", (req, res) => {
+      req.logout((err) => {
+        if (err) {
+          console.error("Logout error:", err);
+          return res.status(500).send("Logout failed");
+        }
+        res.json({ message: "Logout successful" });
+      });
+    });
+
+    // Get current user route
+    app.get("/api/user", (req, res) => {
+      if (req.isAuthenticated()) {
+        const user = req.user;
+        return res.json({
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          education: user.education,
+          occupation: user.occupation,
+          bio: user.bio,
+          xp: user.xp,
+          level: user.level,
+        });
+      }
+      res.status(401).send("Not logged in");
+    });
+
+    console.log("Authentication setup completed");
+  } catch (error) {
+    console.error("Failed to setup authentication:", error);
+    throw error;
+  }
 }

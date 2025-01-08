@@ -48,7 +48,8 @@ const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunctio
 
 (async () => {
   try {
-    const server = registerRoutes(app);
+    // Register routes and get server instance
+    const server = await registerRoutes(app);
 
     app.use(errorHandler);
 
@@ -66,29 +67,29 @@ const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunctio
             resolve(port);
           });
 
-          srv.on('error', (err: any) => {
-            if (err.code === 'EADDRINUSE') {
+          srv.on('error', (error: NodeJS.ErrnoException) => {
+            if (error.code === 'EADDRINUSE') {
               srv.close();
-              reject(err);
+              reject(error);
             } else {
-              reject(err);
+              reject(error);
             }
           });
         });
         return port;
-      } catch (err) {
-        if (err.code === 'EADDRINUSE' && port < 5010) {
+      } catch (error: any) {
+        if (error.code === 'EADDRINUSE' && port < 5010) {
           // Try next port
           return tryPort(port + 1);
         }
-        throw err;
+        throw error;
       }
     };
 
     const PORT = await tryPort(5000);
     log(`Server started successfully on port ${PORT}`);
-  } catch (err) {
-    console.error('Failed to start server:', err);
+  } catch (error: any) {
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 })();

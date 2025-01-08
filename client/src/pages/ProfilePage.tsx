@@ -15,7 +15,7 @@ import Header from "@/components/ui/header";
 import Footer from "@/components/ui/footer";
 
 const profileSchema = z.object({
-  displayName: z.string().min(2, "Display name must be at least 2 characters"),
+  displayName: z.string().min(2, "Display name must be at least 2 characters").optional(),
   education: z.string().optional(),
   occupation: z.string().optional(),
   bio: z.string().optional(),
@@ -54,7 +54,8 @@ export default function ProfilePage() {
       });
 
       if (!response.ok) {
-        throw new Error(await response.text());
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update profile');
       }
 
       return response.json();
@@ -78,6 +79,20 @@ export default function ProfilePage() {
   const onSubmit = (data: ProfileFormData) => {
     updateProfileMutation.mutate(data);
   };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">
+              Please log in to view your profile
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
