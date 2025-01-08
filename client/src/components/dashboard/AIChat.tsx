@@ -99,15 +99,17 @@ Outlook: ${analysis.shortTermOutlook}`;
 
   return (
     <Card className="h-[600px] flex flex-col bg-background">
-      <div className="p-4 border-b flex justify-between items-center">
-        <h2 className="text-lg font-semibold">AI Assistant</h2>
+      <div className="p-4 border-b flex justify-between items-center bg-white dark:bg-gray-900">
+        <div className="flex items-center space-x-2">
+          <h2 className="text-xl font-semibold">AI Assistant</h2>
+        </div>
         {symbol && (
           <Button
             variant="outline"
             size="sm"
             onClick={handleAnalyze}
             disabled={isAnalyzing}
-            className="h-8"
+            className="h-9 px-4 font-medium"
           >
             {isAnalyzing ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -144,7 +146,7 @@ Outlook: ${analysis.shortTermOutlook}`;
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t bg-background">
+      <div className="p-4 border-t bg-white dark:bg-gray-900">
         <div className="flex gap-2">
           <Input
             placeholder="Ask me anything about trading..."
