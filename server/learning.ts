@@ -7,26 +7,35 @@ import {
   userAchievements,
   users,
 } from "@db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, count } from "drizzle-orm";
 
 export function setupLearningRoutes(app: Express) {
   // Get all lessons with progress for current user
   app.get("/api/lessons", async (req, res) => {
     try {
-      if (!req.user?.id) {
+      const user = req.user;
+      if (!user?.id) {
         return res.status(401).send("Not logged in");
       }
 
-      const allLessons = await db.query.lessons.findMany({
-        with: {
-          userProgress: {
-            where: eq(userProgress.userId, req.user.id),
-          },
-        },
-        orderBy: lessons.order,
-      });
+      const allLessons = await db
+        .select()
+        .from(lessons)
+        .leftJoin(
+          userProgress,
+          and(
+            eq(userProgress.lessonId, lessons.id),
+            eq(userProgress.userId, user.id)
+          )
+        )
+        .orderBy(lessons.order);
 
-      res.json(allLessons);
+      const formattedLessons = allLessons.map(({ lessons: lesson, user_progress }) => ({
+        ...lesson,
+        userProgress: user_progress ? [user_progress] : [],
+      }));
+
+      res.json(formattedLessons);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: errorMessage });
@@ -36,20 +45,23 @@ export function setupLearningRoutes(app: Express) {
   // Get a specific lesson by ID
   app.get("/api/lessons/:id", async (req, res) => {
     try {
-      if (!req.user?.id) {
+      const user = req.user;
+      if (!user?.id) {
         return res.status(401).send("Not logged in");
       }
 
       const lessonId = parseInt(req.params.id);
-      const lesson = await db.query.lessons.findFirst({
-        where: eq(lessons.id, lessonId),
-      });
+      const lesson = await db
+        .select()
+        .from(lessons)
+        .where(eq(lessons.id, lessonId))
+        .limit(1);
 
-      if (!lesson) {
+      if (!lesson.length) {
         return res.status(404).send("Lesson not found");
       }
 
-      res.json(lesson);
+      res.json(lesson[0]);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: errorMessage });
@@ -59,28 +71,35 @@ export function setupLearningRoutes(app: Express) {
   // Mark lesson as completed and award XP
   app.post("/api/lessons/:id/complete", async (req, res) => {
     try {
-      if (!req.user?.id) {
+      const user = req.user;
+      if (!user?.id) {
         return res.status(401).send("Not logged in");
       }
 
       const lessonId = parseInt(req.params.id);
       const { score } = req.body;
 
-      const lesson = await db.query.lessons.findFirst({
-        where: eq(lessons.id, lessonId),
-      });
+      const [lesson] = await db
+        .select()
+        .from(lessons)
+        .where(eq(lessons.id, lessonId))
+        .limit(1);
 
       if (!lesson) {
         return res.status(404).send("Lesson not found");
       }
 
       // Check if lesson is already completed
-      const existingProgress = await db.query.userProgress.findFirst({
-        where: and(
-          eq(userProgress.userId, req.user.id),
-          eq(userProgress.lessonId, lessonId)
-        ),
-      });
+      const [existingProgress] = await db
+        .select()
+        .from(userProgress)
+        .where(
+          and(
+            eq(userProgress.userId, user.id),
+            eq(userProgress.lessonId, lessonId)
+          )
+        )
+        .limit(1);
 
       if (existingProgress?.completed) {
         return res.status(400).send("Lesson already completed");
@@ -100,7 +119,7 @@ export function setupLearningRoutes(app: Express) {
             .where(eq(userProgress.id, existingProgress.id));
         } else {
           await tx.insert(userProgress).values({
-            userId: req.user.id,
+            userId: user.id,
             lessonId,
             completed: true,
             score,
@@ -109,26 +128,33 @@ export function setupLearningRoutes(app: Express) {
         }
 
         // Award XP to user
+        const newXP = user.xp + lesson.xpReward;
+        const newLevel = Math.floor(newXP / 1000) + 1;
+
         await tx
           .update(users)
           .set({
-            xp: req.user.xp + lesson.xpReward,
-            level: Math.floor((req.user.xp + lesson.xpReward) / 1000) + 1,
+            xp: newXP,
+            level: newLevel,
           })
-          .where(eq(users.id, req.user.id));
-
+          .where(eq(users.id, user.id));
 
         // Check for new achievements
-        const potentialAchievements = await tx.query.achievements.findMany({
-          where: isNull(userAchievements.userId),
-          with: {
-            userAchievements: {
-              where: eq(userAchievements.userId, req.user.id),
-            },
-          },
-        });
+        const allAchievements = await tx
+          .select()
+          .from(achievements)
+          .leftJoin(
+            userAchievements,
+            and(
+              eq(userAchievements.achievementId, achievements.id),
+              eq(userAchievements.userId, user.id)
+            )
+          )
+          .where(isNull(userAchievements.id));
 
-        for (const achievement of potentialAchievements) {
+        for (const { achievements: achievement } of allAchievements) {
+          if (!achievement) continue;
+
           const requirement = achievement.requirement as {
             type: "lessons_completed" | "xp_reached" | "level_reached";
             value: number;
@@ -137,39 +163,44 @@ export function setupLearningRoutes(app: Express) {
           let isUnlocked = false;
 
           switch (requirement.type) {
-            case "lessons_completed":
-              const completedCount = await tx.query.userProgress.count({
-                where: and(
-                  eq(userProgress.userId, req.user.id),
-                  eq(userProgress.completed, true)
-                ),
-              });
-              isUnlocked = completedCount >= requirement.value;
+            case "lessons_completed": {
+              const completedCount = await tx
+                .select({ value: count() })
+                .from(userProgress)
+                .where(
+                  and(
+                    eq(userProgress.userId, user.id),
+                    eq(userProgress.completed, true)
+                  )
+                );
+              isUnlocked = (completedCount[0]?.value || 0) >= requirement.value;
               break;
+            }
 
             case "xp_reached":
-              isUnlocked = req.user.xp + lesson.xpReward >= requirement.value; //Using updated XP here.
+              isUnlocked = newXP >= requirement.value;
               break;
 
             case "level_reached":
-              isUnlocked = Math.floor((req.user.xp + lesson.xpReward) / 1000) + 1 >= requirement.value; //Using updated level here.
+              isUnlocked = newLevel >= requirement.value;
               break;
           }
 
           if (isUnlocked) {
             await tx.insert(userAchievements).values({
-              userId: req.user.id,
+              userId: user.id,
               achievementId: achievement.id,
             });
 
             // Award achievement XP
+            const updatedXP = newXP + achievement.xpReward;
             await tx
               .update(users)
               .set({
-                xp: req.user.xp + lesson.xpReward + achievement.xpReward,
-                level: Math.floor((req.user.xp + lesson.xpReward + achievement.xpReward) / 1000) + 1,
+                xp: updatedXP,
+                level: Math.floor(updatedXP / 1000) + 1,
               })
-              .where(eq(users.id, req.user.id));
+              .where(eq(users.id, user.id));
           }
         }
       });
@@ -184,19 +215,30 @@ export function setupLearningRoutes(app: Express) {
   // Get user's achievements
   app.get("/api/achievements", async (req, res) => {
     try {
-      if (!req.user?.id) {
+      const user = req.user;
+      if (!user?.id) {
         return res.status(401).send("Not logged in");
       }
 
-      const userAchievementsList = await db.query.achievements.findMany({
-        with: {
-          userAchievements: {
-            where: eq(userAchievements.userId, req.user.id),
-          },
-        },
-      });
+      const achievementsList = await db
+        .select()
+        .from(achievements)
+        .leftJoin(
+          userAchievements,
+          and(
+            eq(userAchievements.achievementId, achievements.id),
+            eq(userAchievements.userId, user.id)
+          )
+        );
 
-      res.json(userAchievementsList);
+      const formattedAchievements = achievementsList.map(
+        ({ achievements: achievement, user_achievements }) => ({
+          ...achievement,
+          userAchievements: user_achievements ? [user_achievements] : [],
+        })
+      );
+
+      res.json(formattedAchievements);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: errorMessage });

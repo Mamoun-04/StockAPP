@@ -5,6 +5,7 @@ import { useUser } from "@/hooks/use-user";
 import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/DashboardPage";
 import TradingTermsPage from "./pages/TradingTermsPage";
+import LearningPage from "./pages/LearningPage";
 
 function App() {
   const { user, isLoading } = useUser();
@@ -24,6 +25,7 @@ function App() {
   return (
     <Switch>
       <Route path="/" component={DashboardPage} />
+      <Route path="/study" component={LearningPage} />
       <Route path="/terms" component={TradingTermsPage} />
       <Route component={NotFound} />
     </Switch>
