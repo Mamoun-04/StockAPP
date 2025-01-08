@@ -18,15 +18,75 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
     if (!searchTerm.trim()) return;
 
     try {
-      const response = await fetch(
-        `/api/stocks/search?q=${encodeURIComponent(searchTerm)}`,
+      // First try exact symbol match
+      const symbolResponse = await fetch(
+        `/api/stocks/search?q=${encodeURIComponent(searchTerm.toUpperCase())}`,
       );
-      const data = await response.json();
-      setResults(data);
+      let symbolData = await symbolResponse.json();
+
+      // Then try company name search
+      const nameResponse = await fetch(
+        `/api/stocks/search?q=${encodeURIComponent(searchTerm.toLowerCase())}`,
+      );
+      let nameData = await nameResponse.json();
+
+      // Combine results and remove duplicates
+      const combinedResults = [...symbolData, ...nameData];
+      const uniqueResults = Array.from(
+        new Map(combinedResults.map((stock) => [stock.symbol, stock])).values(),
+      );
+
+      // Sort results by relevance
+      const sortedResults = uniqueResults.sort((a, b) => {
+        const aRelevance = getRelevanceScore(a, searchTerm);
+        const bRelevance = getRelevanceScore(b, searchTerm);
+        return bRelevance - aRelevance;
+      });
+
+      setResults(sortedResults);
       setShowResults(true);
     } catch (err) {
+      console.error("Search error:", err);
       setResults([]);
     }
+  };
+
+  // Calculate relevance score for sorting results
+  const getRelevanceScore = (
+    stock: { symbol: string; name: string },
+    search: string,
+  ) => {
+    const searchLower = search.toLowerCase();
+    const symbolLower = stock.symbol.toLowerCase();
+    const nameLower = stock.name.toLowerCase();
+
+    let score = 0;
+
+    // Exact matches get highest priority
+    if (symbolLower === searchLower) score += 100;
+    if (nameLower === searchLower) score += 90;
+
+    // Starts with search term
+    if (symbolLower.startsWith(searchLower)) score += 80;
+    if (nameLower.startsWith(searchLower)) score += 70;
+
+    // Contains search term
+    if (symbolLower.includes(searchLower)) score += 60;
+    if (nameLower.includes(searchLower)) score += 50;
+
+    // Word boundary matches
+    const searchWords = searchLower.split(/\s+/);
+    for (const word of searchWords) {
+      if (word.length < 2) continue;
+
+      const symbolWordMatch = new RegExp(`\\b${word}`, "i").test(stock.symbol);
+      const nameWordMatch = new RegExp(`\\b${word}`, "i").test(stock.name);
+
+      if (symbolWordMatch) score += 40;
+      if (nameWordMatch) score += 30;
+    }
+
+    return score;
   };
 
   const handleSelect = (symbol: string) => {
@@ -36,14 +96,30 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
     setShowResults(false);
   };
 
+  // Debounced search
+  let searchTimeout: NodeJS.Timeout;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+
+    clearTimeout(searchTimeout);
+    if (e.target.value.length >= 2) {
+      searchTimeout = setTimeout(() => {
+        handleSearch();
+      }, 300); // 300ms delay
+    } else {
+      setShowResults(false);
+    }
+  };
+
   return (
     <div className="relative flex flex-col gap-2">
       <div className="flex gap-2">
         <Input
           placeholder="Search by company name or symbol (e.g., Apple or AAPL)"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={handleInputChange}
           onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+          className="flex-1"
         />
         <Button onClick={handleSearch}>
           <Search className="h-4 w-4 mr-2" />
