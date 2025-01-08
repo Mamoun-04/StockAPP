@@ -33,11 +33,6 @@ type TradeOrder = {
   limitPrice?: number;
 };
 
-type HistoricalData = {
-  time: string;
-  price: number;
-}[];
-
 export function useMarketData(symbol?: string) {
   const { toast } = useToast();
 
@@ -111,81 +106,18 @@ export function useMarketData(symbol?: string) {
       toast({
         variant: "destructive",
         title: "Trade Failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred"
+        description: error.message
       });
     }
   });
-
-  const fetchHistoricalData = async (symbol: string, timeRange: string) => {
-    try {
-      // Mock historical data for demonstration
-      // This would be replaced with actual API calls in production
-      const now = new Date();
-      const mockData: HistoricalData = [];
-      let dataPoints = 0;
-      let startDate = new Date();
-
-      switch (timeRange) {
-        case "1D":
-          dataPoints = 24;
-          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          break;
-        case "1W":
-          dataPoints = 7;
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case "1M":
-          dataPoints = 30;
-          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          break;
-        case "3M":
-          dataPoints = 90;
-          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-          break;
-        case "1Y":
-          dataPoints = 365;
-          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-          break;
-        case "5Y":
-          dataPoints = 1825;
-          startDate = new Date(now.getTime() - 1825 * 24 * 60 * 60 * 1000);
-          break;
-      }
-
-      const basePrice = 100;
-      const volatility = 0.02;
-
-      for (let i = 0; i < dataPoints; i++) {
-        const currentDate = new Date(startDate.getTime() + (i * (now.getTime() - startDate.getTime()) / dataPoints));
-        const randomChange = (Math.random() - 0.5) * 2 * volatility;
-        const price = basePrice * (1 + randomChange);
-
-        mockData.push({
-          time: currentDate.toLocaleDateString(),
-          price: price
-        });
-      }
-
-      return mockData;
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Failed to fetch historical data",
-        description: error instanceof Error ? error.message : "An unknown error occurred"
-      });
-      return [];
-    }
-  };
 
   return {
     quote: quote.data,
     positions: positions.data,
     account: account.data,
-    historicalData: null,
     isLoading: quote.isLoading || positions.isLoading || account.isLoading,
     error: quote.error || positions.error || account.error,
     placeTrade: tradeMutation.mutateAsync,
-    isTradePending: tradeMutation.isPending,
-    fetchHistoricalData
+    isTradePending: tradeMutation.isPending
   };
 }
