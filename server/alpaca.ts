@@ -22,48 +22,54 @@ type AlpacaAccount = {
   buying_power: string;
 };
 
+function createAlpacaClient(apiKey: string, secretKey: string) {
+  return new Alpaca({
+    keyId: apiKey,
+    secretKey: secretKey,
+    paper: true,
+  });
+}
+
 export function setupAlpacaRoutes(app: Express) {
   app.get("/api/market/quotes/:symbol", async (req, res) => {
     try {
       if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {
-        return res.status(400).send("Alpaca API credentials not configured");
+        return res.status(401).send("Please configure your Alpaca API credentials first");
       }
 
-      const alpaca = new Alpaca({
-        keyId: req.user.alpacaApiKey,
-        secretKey: req.user.alpacaSecretKey,
-        paper: true,
-      });
-
+      const alpaca = createAlpacaClient(req.user.alpacaApiKey, req.user.alpacaSecretKey);
       const { symbol } = req.params;
-      const quote = await alpaca.getLatestQuote(symbol) as unknown as AlpacaQuote;
-      res.json({
-        symbol,
-        price: quote.AskPrice || quote.BidPrice,
-        timestamp: quote.Timestamp,
-        volume: quote.Volume || 0,
-        change: 0,
-        changePercent: 0,
-      });
+
+      try {
+        const quote = await alpaca.getLatestQuote(symbol) as unknown as AlpacaQuote;
+        res.json({
+          symbol,
+          price: quote.AskPrice || quote.BidPrice,
+          timestamp: quote.Timestamp,
+          volume: quote.Volume || 0,
+          change: 0,
+          changePercent: 0,
+        });
+      } catch (apiError: any) {
+        if (apiError.statusCode === 403) {
+          return res.status(401).send("Invalid Alpaca API credentials. Please check your API key and secret.");
+        }
+        throw apiError;
+      }
     } catch (error: unknown) {
+      console.error("Quote fetch error:", error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       res.status(500).json({ error: errorMessage });
     }
   });
 
-  // New endpoint for historical data
   app.get("/api/market/history/:symbol", async (req, res) => {
     try {
       if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {
-        return res.status(400).send("Alpaca API credentials not configured");
+        return res.status(401).send("Please configure your Alpaca API credentials first");
       }
 
-      const alpaca = new Alpaca({
-        keyId: req.user.alpacaApiKey,
-        secretKey: req.user.alpacaSecretKey,
-        paper: true,
-      });
-
+      const alpaca = createAlpacaClient(req.user.alpacaApiKey, req.user.alpacaSecretKey);
       const { symbol } = req.params;
       const { period = 'day' } = req.query;
 
@@ -85,33 +91,36 @@ export function setupAlpacaRoutes(app: Express) {
           start.setDate(end.getDate() - 1);
       }
 
-      // Fetch bars with appropriate timeframe
-      const timeframe = period === 'day' ? '5Min' : 
-                       period === 'week' ? '15Min' : 
-                       period === 'month' ? '1Hour' : '1Day';
-
-      const bars = await alpaca.getBarsV2(symbol, {
-        start: start.toISOString(),
-        end: end.toISOString(),
-        timeframe: timeframe,
-      });
-
-      const history: Array<{
-        timestamp: string;
-        price: number;
-        volume: number;
-      }> = [];
-
-      // Collect all bars
-      for await (const bar of bars) {
-        history.push({
-          timestamp: new Date(bar.Timestamp).toISOString(),
-          price: bar.ClosePrice,
-          volume: bar.Volume
+      try {
+        const bars = await alpaca.getBarsV2(symbol, {
+          start: start.toISOString(),
+          end: end.toISOString(),
+          timeframe: period === 'day' ? '5Min' : 
+                    period === 'week' ? '15Min' : 
+                    period === 'month' ? '1Hour' : '1Day',
         });
-      }
 
-      res.json(history);
+        const history: Array<{
+          timestamp: string;
+          price: number;
+          volume: number;
+        }> = [];
+
+        for await (const bar of bars) {
+          history.push({
+            timestamp: new Date(bar.Timestamp).toISOString(),
+            price: bar.ClosePrice,
+            volume: bar.Volume
+          });
+        }
+
+        res.json(history);
+      } catch (apiError: any) {
+        if (apiError.statusCode === 403) {
+          return res.status(401).send("Invalid Alpaca API credentials. Please check your API key and secret.");
+        }
+        throw apiError;
+      }
     } catch (error: unknown) {
       console.error('Historical data fetch error:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -122,15 +131,10 @@ export function setupAlpacaRoutes(app: Express) {
   app.get("/api/market/trades/:symbol", async (req, res) => {
     try {
       if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {
-        return res.status(400).send("Alpaca API credentials not configured");
+        return res.status(401).send("Please configure your Alpaca API credentials first");
       }
 
-      const alpaca = new Alpaca({
-        keyId: req.user.alpacaApiKey,
-        secretKey: req.user.alpacaSecretKey,
-        paper: true,
-      });
-
+      const alpaca = createAlpacaClient(req.user.alpacaApiKey, req.user.alpacaSecretKey);
       const { symbol } = req.params;
       const trades = await alpaca.getLatestTrade(symbol);
       res.json(trades);
@@ -143,15 +147,10 @@ export function setupAlpacaRoutes(app: Express) {
   app.post("/api/trade", async (req, res) => {
     try {
       if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {
-        return res.status(400).send("Alpaca API credentials not configured");
+        return res.status(401).send("Please configure your Alpaca API credentials first");
       }
 
-      const alpaca = new Alpaca({
-        keyId: req.user.alpacaApiKey,
-        secretKey: req.user.alpacaSecretKey,
-        paper: true,
-      });
-
+      const alpaca = createAlpacaClient(req.user.alpacaApiKey, req.user.alpacaSecretKey);
       const { symbol, qty, side, type, timeInForce } = req.body;
 
       const order = await alpaca.createOrder({
@@ -172,15 +171,10 @@ export function setupAlpacaRoutes(app: Express) {
   app.get("/api/positions", async (req, res) => {
     try {
       if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {
-        return res.status(400).send("Alpaca API credentials not configured");
+        return res.status(401).send("Please configure your Alpaca API credentials first");
       }
 
-      const alpaca = new Alpaca({
-        keyId: req.user.alpacaApiKey,
-        secretKey: req.user.alpacaSecretKey,
-        paper: true,
-      });
-
+      const alpaca = createAlpacaClient(req.user.alpacaApiKey, req.user.alpacaSecretKey);
       const positions = await alpaca.getPositions() as unknown as AlpacaPosition[];
       res.json(positions.map(pos => ({
         symbol: pos.symbol,
@@ -198,15 +192,10 @@ export function setupAlpacaRoutes(app: Express) {
   app.get("/api/account", async (req, res) => {
     try {
       if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {
-        return res.status(400).send("Alpaca API credentials not configured");
+        return res.status(401).send("Please configure your Alpaca API credentials first");
       }
 
-      const alpaca = new Alpaca({
-        keyId: req.user.alpacaApiKey,
-        secretKey: req.user.alpacaSecretKey,
-        paper: true,
-      });
-
+      const alpaca = createAlpacaClient(req.user.alpacaApiKey, req.user.alpacaSecretKey);
       const account = await alpaca.getAccount() as unknown as AlpacaAccount;
       res.json({
         cash: parseFloat(account.cash),
