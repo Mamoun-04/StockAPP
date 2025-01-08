@@ -55,9 +55,8 @@ export default function DashboardPage() {
       <main className="max-w-screen-2xl mx-auto px-4 py-6">
         <div className="grid grid-cols-12 gap-6">
           {/* Left Sidebar - Portfolio */}
-          <div className="col-span-12 md:col-span-2 space-y-4">
-            <Card className="p-4">
-              <h2 className="text-lg font-semibold mb-4">Positions</h2>
+          <div className="col-span-12 md:col-span-3 space-y-4">
+            <Card className="p-4 overflow-visible">
               <div className="space-y-2">
                 <Portfolio />
               </div>
@@ -65,13 +64,17 @@ export default function DashboardPage() {
           </div>
 
           {/* Main Content Area */}
-          <div className="col-span-12 md:col-span-7 space-y-6">
+          <div className="col-span-12 md:col-span-6 space-y-6">
             {/* Stock Search and Chart */}
             <Card className="p-4">
               <div className="mb-4">
                 <StockSearch value={selectedSymbol} onSelect={setSelectedSymbol} />
               </div>
-              {selectedSymbol && <StockChart symbol={selectedSymbol} />}
+              {selectedSymbol && (
+                <div className="h-[400px]"> {/* Fixed height for chart */}
+                  <StockChart symbol={selectedSymbol} />
+                </div>
+              )}
             </Card>
 
             {/* Trade Panel */}
