@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,17 @@ import AIChat from "@/components/dashboard/AIChat";
 import { StockSearch } from "@/components/ui/stock-search";
 import TradePanel from "@/components/dashboard/TradePanel";
 import { LogOut, BookOpen, LineChart, Users } from "lucide-react";
+import { useStockRotation } from "@/hooks/use-stock-rotation";
 
 export default function DashboardPage() {
   const { user, logout } = useUser();
-  const [selectedSymbol, setSelectedSymbol] = useState<string>("");
+  const { currentSymbol, isPositionSymbol } = useStockRotation();
+  const [selectedSymbol, setSelectedSymbol] = useState(currentSymbol);
+
+  // Update selected symbol when rotation changes
+  useEffect(() => {
+    setSelectedSymbol(currentSymbol);
+  }, [currentSymbol]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -68,13 +75,27 @@ export default function DashboardPage() {
             {/* Stock Search and Chart */}
             <Card className="p-4">
               <div className="mb-4">
-                <StockSearch value={selectedSymbol} onSelect={setSelectedSymbol} />
+                <StockSearch 
+                  value={selectedSymbol} 
+                  onSelect={setSelectedSymbol}
+                />
               </div>
-              {selectedSymbol && (
-                <div className="h-[400px]"> {/* Fixed height for chart */}
+              <div className="relative">
+                <div className="absolute top-2 right-2 z-10">
+                  {isPositionSymbol ? (
+                    <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
+                      Your Position
+                    </span>
+                  ) : (
+                    <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
+                      Trending
+                    </span>
+                  )}
+                </div>
+                <div className="h-[400px]">
                   <StockChart symbol={selectedSymbol} />
                 </div>
-              )}
+              </div>
             </Card>
 
             {/* Trade Panel */}
