@@ -42,10 +42,78 @@ export function setupAlpacaRoutes(app: Express) {
         price: quote.AskPrice || quote.BidPrice,
         timestamp: quote.Timestamp,
         volume: quote.Volume || 0,
-        change: 0, // We'll need to calculate this from historical data
+        change: 0,
         changePercent: 0,
       });
     } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
+  // New endpoint for historical data
+  app.get("/api/market/history/:symbol", async (req, res) => {
+    try {
+      if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {
+        return res.status(400).send("Alpaca API credentials not configured");
+      }
+
+      const alpaca = new Alpaca({
+        keyId: req.user.alpacaApiKey,
+        secretKey: req.user.alpacaSecretKey,
+        paper: true,
+      });
+
+      const { symbol } = req.params;
+      const { period = 'day' } = req.query;
+
+      // Calculate start and end times based on period
+      const end = new Date();
+      let start = new Date();
+
+      switch(period) {
+        case 'week':
+          start.setDate(end.getDate() - 7);
+          break;
+        case 'month':
+          start.setMonth(end.getMonth() - 1);
+          break;
+        case 'year':
+          start.setFullYear(end.getFullYear() - 1);
+          break;
+        default: // day
+          start.setDate(end.getDate() - 1);
+      }
+
+      // Fetch bars with appropriate timeframe
+      const timeframe = period === 'day' ? '5Min' : 
+                       period === 'week' ? '15Min' : 
+                       period === 'month' ? '1Hour' : '1Day';
+
+      const bars = await alpaca.getBarsV2(symbol, {
+        start: start.toISOString(),
+        end: end.toISOString(),
+        timeframe: timeframe,
+      });
+
+      const history: Array<{
+        timestamp: string;
+        price: number;
+        volume: number;
+      }> = [];
+
+      // Collect all bars
+      for await (const bar of bars) {
+        history.push({
+          timestamp: new Date(bar.Timestamp).toISOString(),
+          price: bar.ClosePrice,
+          volume: bar.Volume
+        });
+      }
+
+      res.json(history);
+    } catch (error: unknown) {
+      console.error('Historical data fetch error:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       res.status(500).json({ error: errorMessage });
     }
