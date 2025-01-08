@@ -135,6 +135,13 @@ export default function FeedPage() {
     addCommentMutation.mutate({ postId, content });
   };
 
+  const getInitials = (author: { displayName?: string; username: string }) => {
+    if (author.displayName) {
+      return author.displayName[0].toUpperCase();
+    }
+    return author.username[0].toUpperCase();
+  };
+
   const renderTradeInfo = (post: Post) => {
     if (post.type !== 'trade' || !post.stockSymbol) return null;
 
@@ -202,14 +209,16 @@ export default function FeedPage() {
                     {/* Post Header */}
                     <div className="flex items-center space-x-4 mb-4">
                       <Avatar>
-                        <AvatarImage src={post.author.avatarUrl} />
+                        {post.author?.avatarUrl ? (
+                          <AvatarImage src={post.author.avatarUrl} alt={post.author.displayName || post.author.username} />
+                        ) : null}
                         <AvatarFallback>
-                          {post.author.displayName?.[0] || post.author.username[0]}
+                          {post.author ? getInitials(post.author) : '?'}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <div className="font-semibold">
-                          {post.author.displayName || post.author.username}
+                          {post.author?.displayName || post.author?.username || 'Unknown User'}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
@@ -226,21 +235,23 @@ export default function FeedPage() {
                     {/* Comments Section */}
                     <div className="mt-4">
                       <div className="text-sm font-medium text-muted-foreground mb-2">
-                        {post.comments.length} comments
+                        {post.comments?.length || 0} comments
                       </div>
                       <ScrollArea className="h-[200px]">
                         <div className="space-y-4">
-                          {post.comments.map((comment) => (
+                          {post.comments?.map((comment) => (
                             <div key={comment.id} className="flex space-x-3">
                               <Avatar className="h-6 w-6">
-                                <AvatarImage src={comment.author.avatarUrl} />
+                                {comment.author?.avatarUrl ? (
+                                  <AvatarImage src={comment.author.avatarUrl} alt={comment.author.displayName || comment.author.username} />
+                                ) : null}
                                 <AvatarFallback>
-                                  {comment.author.displayName?.[0] || comment.author.username[0]}
+                                  {comment.author ? getInitials(comment.author) : '?'}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
                                 <div className="text-sm font-medium">
-                                  {comment.author.displayName || comment.author.username}
+                                  {comment.author?.displayName || comment.author?.username || 'Unknown User'}
                                 </div>
                                 <p className="text-sm text-muted-foreground">
                                   {comment.content}
