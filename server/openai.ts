@@ -178,6 +178,16 @@ export function setupOpenAIRoutes(app: Express) {
               - Providing factual market information
               - Never making specific buy/sell recommendations
               - Being concise and clear in your explanations
+              - Using bullet points for lists
+              - Keeping responses focused and direct
+              - Avoiding unnecessary technical jargon
+
+              When explaining concepts:
+              1. Start with a clear, one-sentence definition
+              2. Use bullet points for key information
+              3. Include a simple example if relevant
+              4. Keep the total response under 4-5 bullet points
+
               Format your response as a JSON object:
               {
                 "content": "Your response here"

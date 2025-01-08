@@ -82,7 +82,42 @@ export function useAIChat() {
         body: JSON.stringify({ message, history })
       });
       if (!res.ok) throw new Error(await res.text());
-      return res.json();
+      const response = await res.json();
+
+      // Format the response to be more visually appealing
+      const content = response.content;
+      let formattedContent = `💡 ${content}`;
+
+      // Add visual elements for specific types of content
+      if (content.toLowerCase().includes('pros') || content.toLowerCase().includes('advantages')) {
+        formattedContent = content.split('\n').map(line => {
+          if (line.trim().startsWith('-') || line.trim().startsWith('•')) {
+            return `✅ ${line.trim().substring(1)}`;
+          }
+          return line;
+        }).join('\n');
+      } else if (content.toLowerCase().includes('cons') || content.toLowerCase().includes('risks')) {
+        formattedContent = content.split('\n').map(line => {
+          if (line.trim().startsWith('-') || line.trim().startsWith('•')) {
+            return `⚠️ ${line.trim().substring(1)}`;
+          }
+          return line;
+        }).join('\n');
+      } else if (content.toLowerCase().includes('steps') || content.toLowerCase().includes('guide')) {
+        formattedContent = content.split('\n').map(line => {
+          if (line.trim().startsWith('-') || line.trim().startsWith('•')) {
+            return `📍 ${line.trim().substring(1)}`;
+          }
+          return line;
+        }).join('\n');
+      }
+
+      // If it's a definition or explanation
+      if (message.toLowerCase().includes('what is') || message.toLowerCase().includes('explain')) {
+        formattedContent = `📚 Definition:\n${content}`;
+      }
+
+      return { content: formattedContent };
     },
     onError: (error) => {
       toast({
