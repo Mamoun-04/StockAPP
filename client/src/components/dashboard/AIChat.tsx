@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { useAIChat } from "@/hooks/use-ai-chat";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Send, TrendingUp, TrendingDown, AlertTriangle, BarChart2, Clock, AlertCircle } from "lucide-react";
+import { Loader2, Send, BarChart2 } from "lucide-react";
 
 type Message = {
   role: "user" | "assistant";
@@ -98,9 +96,9 @@ Outlook: ${analysis.shortTermOutlook}`;
   };
 
   return (
-    <Card className="h-[600px] flex flex-col bg-background">
-      <div className="p-4 border-b flex justify-between items-center bg-white dark:bg-gray-900">
-        <div className="flex items-center space-x-2">
+    <div className="flex flex-col h-[600px] bg-white dark:bg-gray-900 rounded-lg shadow-sm">
+      <div className="flex items-center justify-between px-6 py-4 border-b">
+        <div className="flex items-center space-x-3">
           <h2 className="text-xl font-semibold">AI Assistant</h2>
         </div>
         {symbol && (
@@ -121,8 +119,8 @@ Outlook: ${analysis.shortTermOutlook}`;
         )}
       </div>
 
-      <ScrollArea className="flex-1 px-4">
-        <div className="space-y-4 py-4">
+      <ScrollArea className="flex-1 px-6 py-4">
+        <div className="space-y-4">
           {messages.map((message, i) => (
             <div
               key={i}
@@ -133,21 +131,21 @@ Outlook: ${analysis.shortTermOutlook}`;
               <div
                 className={`rounded-lg px-4 py-3 max-w-[85%] ${
                   message.role === "assistant"
-                    ? "bg-card text-card-foreground shadow-sm"
+                    ? "bg-gray-50 dark:bg-gray-800 text-foreground shadow-sm"
                     : "bg-primary text-primary-foreground"
                 }`}
               >
-                <pre className="font-sans whitespace-pre-wrap text-sm leading-relaxed">
+                <div className="font-sans whitespace-pre-wrap text-sm leading-relaxed">
                   {message.content}
-                </pre>
+                </div>
               </div>
             </div>
           ))}
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t bg-white dark:bg-gray-900">
-        <div className="flex gap-2">
+      <div className="px-6 py-4 border-t">
+        <div className="flex gap-3">
           <Input
             placeholder="Ask me anything about trading..."
             value={input}
@@ -159,7 +157,7 @@ Outlook: ${analysis.shortTermOutlook}`;
             size="icon"
             onClick={handleSend}
             disabled={isChatting || !input.trim()}
-            className="h-10 w-10"
+            className="h-10 w-10 flex-shrink-0"
           >
             {isChatting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -169,6 +167,6 @@ Outlook: ${analysis.shortTermOutlook}`;
           </Button>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
