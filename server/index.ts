@@ -39,12 +39,13 @@ app.use((req, res, next) => {
 (async () => {
   const server = registerRoutes(app);
 
+  // Add global error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    console.error('Error:', err);
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after
@@ -56,8 +57,9 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Changed port from 5000 to 8000 to avoid conflicts
-  const PORT = 8000;
+  // ALWAYS serve the app on port 5000
+  // this serves both the API and the client
+  const PORT = 5000;
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
   });
