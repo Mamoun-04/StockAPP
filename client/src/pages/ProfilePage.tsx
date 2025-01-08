@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,15 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, Image as ImageIcon } from "lucide-react";
 import Header from "@/components/ui/header";
 import Footer from "@/components/ui/footer";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const profileSchema = z.object({
   displayName: z.string().min(2, "Display name must be at least 2 characters").optional(),
   education: z.string().optional(),
   occupation: z.string().optional(),
   bio: z.string().optional(),
+  avatarUrl: z.string().url("Please enter a valid URL").optional().nullable(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -27,11 +29,14 @@ export default function ProfilePage() {
   const { user } = useUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    watch,
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -39,8 +44,16 @@ export default function ProfilePage() {
       education: user?.education || "",
       occupation: user?.occupation || "",
       bio: user?.bio || "",
+      avatarUrl: user?.avatarUrl || "",
     },
   });
+
+  const avatarUrl = watch("avatarUrl");
+
+  // Reset preview error when URL changes
+  useEffect(() => {
+    setPreviewError(null);
+  }, [avatarUrl]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
@@ -55,7 +68,7 @@ export default function ProfilePage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update profile');
+        throw new Error(errorData.error || errorData.details?.join(", ") || 'Failed to update profile');
       }
 
       return response.json();
@@ -77,7 +90,26 @@ export default function ProfilePage() {
   });
 
   const onSubmit = (data: ProfileFormData) => {
-    updateProfileMutation.mutate(data);
+    // Convert empty strings to null for optional fields
+    const cleanedData = {
+      ...data,
+      avatarUrl: data.avatarUrl?.trim() || null,
+      bio: data.bio?.trim() || undefined,
+      education: data.education?.trim() || undefined,
+      occupation: data.occupation?.trim() || undefined,
+      displayName: data.displayName?.trim() || undefined,
+    };
+    updateProfileMutation.mutate(cleanedData);
+  };
+
+  const handleImageLoad = () => {
+    setIsPreviewLoading(false);
+    setPreviewError(null);
+  };
+
+  const handleImageError = () => {
+    setIsPreviewLoading(false);
+    setPreviewError("Unable to load image from URL");
   };
 
   if (!user) {
@@ -100,8 +132,24 @@ export default function ProfilePage() {
       <main className="flex-grow p-8">
         <div className="max-w-2xl mx-auto">
           <Card>
-            <CardHeader>
+            <CardHeader className="space-y-1">
               <CardTitle>Edit Profile</CardTitle>
+              <div className="flex justify-center py-4">
+                <Avatar className="w-24 h-24">
+                  {avatarUrl && !previewError ? (
+                    <AvatarImage
+                      src={avatarUrl}
+                      onLoad={handleImageLoad}
+                      onError={handleImageError}
+                      alt="Profile"
+                    />
+                  ) : (
+                    <AvatarFallback>
+                      <ImageIcon className="w-12 h-12" />
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+              </div>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -115,6 +163,25 @@ export default function ProfilePage() {
                   {errors.displayName && (
                     <p className="text-sm text-destructive">
                       {errors.displayName.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="avatarUrl">Avatar URL</Label>
+                  <Input
+                    id="avatarUrl"
+                    {...register("avatarUrl")}
+                    placeholder="https://example.com/avatar.jpg"
+                  />
+                  {errors.avatarUrl && (
+                    <p className="text-sm text-destructive">
+                      {errors.avatarUrl.message}
+                    </p>
+                  )}
+                  {previewError && (
+                    <p className="text-sm text-destructive">
+                      {previewError}
                     </p>
                   )}
                 </div>

@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { db } from "@db";
 
 const app = express();
 app.use(express.json());
@@ -46,48 +47,47 @@ const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunctio
   res.status(status).json({ message });
 };
 
+// Start the server
 (async () => {
   try {
-    // Register routes and get server instance
-    const server = await registerRoutes(app);
+    // First verify database connection
+    console.log("Verifying database connection...");
+    await db.query.users.findFirst();
+    console.log("Database connection verified");
 
+    // Setup routes and get the server
+    console.log("Setting up routes...");
+    const server = await registerRoutes(app);
+    console.log("Routes registered");
+
+    // Register error handler after routes
     app.use(errorHandler);
 
+    // Setup static file serving
+    console.log("Setting up static file serving...");
     if (app.get("env") === "development") {
       await setupVite(app, server);
     } else {
       serveStatic(app);
     }
 
-    // Try to find an available port starting from 5000
-    const tryPort = async (port: number): Promise<number> => {
-      try {
-        await new Promise((resolve, reject) => {
-          const srv = server.listen(port, "0.0.0.0", () => {
-            resolve(port);
-          });
+    // Start the server on port 5000
+    server.listen(5000, "0.0.0.0", () => {
+      console.log("Server started on port 5000");
+    });
 
-          srv.on('error', (error: NodeJS.ErrnoException) => {
-            if (error.code === 'EADDRINUSE') {
-              srv.close();
-              reject(error);
-            } else {
-              reject(error);
-            }
-          });
-        });
-        return port;
-      } catch (error: any) {
-        if (error.code === 'EADDRINUSE' && port < 5010) {
-          // Try next port
-          return tryPort(port + 1);
-        }
-        throw error;
-      }
+    // Handle cleanup on process termination
+    const cleanup = () => {
+      console.log('Cleaning up server...');
+      server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+      });
     };
 
-    const PORT = await tryPort(5000);
-    log(`Server started successfully on port ${PORT}`);
+    process.on('SIGTERM', cleanup);
+    process.on('SIGINT', cleanup);
+
   } catch (error: any) {
     console.error('Failed to start server:', error);
     process.exit(1);
