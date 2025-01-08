@@ -63,6 +63,53 @@ async function scrapeFinancialData(symbol: string) {
 }
 
 export function setupOpenAIRoutes(app: Express) {
+  app.post("/api/ai/chat", async (req, res) => {
+    try {
+      const { message, history } = req.body;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are a helpful financial advisor assistant. Your goal is to help users understand stock market concepts and make informed decisions by:
+              - Explaining concepts in simple terms with examples
+              - Providing factual market information
+              - Never making specific buy/sell recommendations
+              - Being concise and clear in your explanations
+              - Using bullet points for lists
+              - Keeping responses focused and direct
+              - Avoiding unnecessary technical jargon
+
+              When explaining concepts:
+              1. Start with a clear, one-sentence definition
+              2. Use bullet points for key information
+              3. Include a simple example if relevant
+              4. Keep the total response under 4-5 bullet points
+
+              Format your response as a JSON object:
+              {
+                "content": "Your response here"
+              }`,
+          },
+          ...history,
+          { role: "user", content: message },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const content = response.choices[0].message.content;
+      if (!content) {
+        throw new Error("No content in response");
+      }
+
+      res.json(JSON.parse(content));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
   app.post("/api/ai/analyze", async (req, res) => {
     try {
       const { symbol } = req.body;
@@ -163,54 +210,6 @@ export function setupOpenAIRoutes(app: Express) {
       res.status(500).json({ error: errorMessage });
     }
   });
-
-  app.post("/api/ai/chat", async (req, res) => {
-    try {
-      const { message, history } = req.body;
-
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a helpful financial advisor assistant. Your goal is to help users understand stock market concepts and make informed decisions by:
-              - Explaining concepts in simple terms with examples
-              - Providing factual market information
-              - Never making specific buy/sell recommendations
-              - Being concise and clear in your explanations
-              - Using bullet points for lists
-              - Keeping responses focused and direct
-              - Avoiding unnecessary technical jargon
-
-              When explaining concepts:
-              1. Start with a clear, one-sentence definition
-              2. Use bullet points for key information
-              3. Include a simple example if relevant
-              4. Keep the total response under 4-5 bullet points
-
-              Format your response as a JSON object:
-              {
-                "content": "Your response here"
-              }`,
-          },
-          ...history,
-          { role: "user", content: message },
-        ],
-        response_format: { type: "json_object" },
-      });
-
-      const content = response.choices[0].message.content;
-      if (!content) {
-        throw new Error("No content in response");
-      }
-
-      res.json(JSON.parse(content));
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-      res.status(500).json({ error: errorMessage });
-    }
-  });
-
   app.post("/api/ai/advisor", async (req, res) => {
     try {
       const { question, context } = req.body;

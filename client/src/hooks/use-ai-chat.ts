@@ -88,33 +88,48 @@ export function useAIChat() {
       const content = response.content;
       let formattedContent = `💡 ${content}`;
 
-      // Add visual elements for specific types of content
-      if (content.toLowerCase().includes('pros') || content.toLowerCase().includes('advantages')) {
-        formattedContent = content.split('\n').map(line => {
-          if (line.trim().startsWith('-') || line.trim().startsWith('•')) {
-            return `✅ ${line.trim().substring(1)}`;
-          }
-          return line;
-        }).join('\n');
-      } else if (content.toLowerCase().includes('cons') || content.toLowerCase().includes('risks')) {
-        formattedContent = content.split('\n').map(line => {
-          if (line.trim().startsWith('-') || line.trim().startsWith('•')) {
-            return `⚠️ ${line.trim().substring(1)}`;
-          }
-          return line;
-        }).join('\n');
-      } else if (content.toLowerCase().includes('steps') || content.toLowerCase().includes('guide')) {
-        formattedContent = content.split('\n').map(line => {
-          if (line.trim().startsWith('-') || line.trim().startsWith('•')) {
-            return `📍 ${line.trim().substring(1)}`;
-          }
-          return line;
-        }).join('\n');
-      }
-
-      // If it's a definition or explanation
+      // Format based on question type
       if (message.toLowerCase().includes('what is') || message.toLowerCase().includes('explain')) {
-        formattedContent = `📚 Definition:\n${content}`;
+        // Definition format
+        formattedContent = content.split('\n').map(line => {
+          if (line.includes('**Definition**:')) {
+            return `💡 - ${line.replace('**Definition**:', 'Definition:').trim()}`;
+          }
+          if (line.includes('**Key Information**:')) {
+            return `📝 Key Information:${line.split('**Key Information**:')[1]}`;
+          }
+          if (line.trim().startsWith('-')) {
+            return `   ${line.trim().substring(1).trim()}`;
+          }
+          if (line.includes('**Example**:')) {
+            return `📊 Example:${line.split('**Example**:')[1]}`;
+          }
+          return line;
+        }).filter(line => line.trim()).join('\n');
+      } else if (content.toLowerCase().includes('pros') || content.toLowerCase().includes('advantages')) {
+        // Pros/Advantages format
+        formattedContent = content.split('\n').map(line => {
+          if (line.trim().startsWith('-')) {
+            return `✅ ${line.trim().substring(1).trim()}`;
+          }
+          return line;
+        }).filter(line => line.trim()).join('\n');
+      } else if (content.toLowerCase().includes('cons') || content.toLowerCase().includes('risks')) {
+        // Cons/Risks format
+        formattedContent = content.split('\n').map(line => {
+          if (line.trim().startsWith('-')) {
+            return `⚠️ ${line.trim().substring(1).trim()}`;
+          }
+          return line;
+        }).filter(line => line.trim()).join('\n');
+      } else if (content.toLowerCase().includes('steps') || content.toLowerCase().includes('guide')) {
+        // Steps/Guide format
+        formattedContent = content.split('\n').map(line => {
+          if (line.trim().startsWith('-')) {
+            return `📍 ${line.trim().substring(1).trim()}`;
+          }
+          return line;
+        }).filter(line => line.trim()).join('\n');
       }
 
       return { content: formattedContent };
