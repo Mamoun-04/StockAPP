@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { setupSocialRoutes } from "./social";
 import { setupLearningRoutes } from "./learning";
+import { setupAlpacaRoutes } from "./alpaca";
 import { db } from "@db";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -26,6 +27,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Setting up learning routes...");
     setupLearningRoutes(app);
     console.log("Learning routes registered");
+
+    // Register Alpaca trading routes
+    console.log("Setting up Alpaca trading routes...");
+    setupAlpacaRoutes(app);
+    console.log("Alpaca trading routes registered");
 
     // Create and return the HTTP server
     const httpServer = createServer(app);

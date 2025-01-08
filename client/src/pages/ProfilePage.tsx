@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import Header from "@/components/ui/header";
 import Footer from "@/components/ui/footer";
 
@@ -19,6 +19,8 @@ const profileSchema = z.object({
   education: z.string().optional(),
   occupation: z.string().optional(),
   bio: z.string().optional(),
+  alpacaApiKey: z.string().optional(),
+  alpacaSecretKey: z.string().optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -39,6 +41,8 @@ export default function ProfilePage() {
       education: user?.education || "",
       occupation: user?.occupation || "",
       bio: user?.bio || "",
+      alpacaApiKey: user?.alpacaApiKey || "",
+      alpacaSecretKey: user?.alpacaSecretKey || "",
     },
   });
 
@@ -98,7 +102,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       <main className="flex-grow p-8">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto space-y-8">
           <Card>
             <CardHeader>
               <CardTitle>Edit Profile</CardTitle>
@@ -145,6 +149,37 @@ export default function ProfilePage() {
                     placeholder="Tell us about yourself"
                     className="min-h-[100px]"
                   />
+                </div>
+
+                <div className="border-t pt-6 space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <AlertCircle className="h-5 w-5 text-blue-500" />
+                    <h3 className="text-lg font-semibold">Trading Settings</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Configure your Alpaca API credentials to enable paper trading functionality.
+                    You can get these from your Alpaca dashboard.
+                  </p>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="alpacaApiKey">Alpaca API Key</Label>
+                    <Input
+                      id="alpacaApiKey"
+                      type="password"
+                      {...register("alpacaApiKey")}
+                      placeholder="Enter your Alpaca API Key"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="alpacaSecretKey">Alpaca Secret Key</Label>
+                    <Input
+                      id="alpacaSecretKey"
+                      type="password"
+                      {...register("alpacaSecretKey")}
+                      placeholder="Enter your Alpaca Secret Key"
+                    />
+                  </div>
                 </div>
 
                 <Button
