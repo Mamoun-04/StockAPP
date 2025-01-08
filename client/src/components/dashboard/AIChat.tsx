@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAIChat } from "@/hooks/use-ai-chat";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -48,19 +48,23 @@ export default function AIChat({ symbol }: AIAnalysisProps) {
     try {
       const analysis = await analyze({
         symbol,
-        data: {}, // Add relevant data here
+        data: {},
       });
+
+      const formattedContent = `
+${analysis.summary}
+
+Key Metrics:
+• Sentiment: ${analysis.metrics.sentiment.value}
+  ${analysis.metrics.sentiment.explanation}
+• Momentum: ${analysis.metrics.momentum.value}
+  ${analysis.metrics.momentum.explanation}
+• Risk: ${analysis.metrics.risk.value}
+  ${analysis.metrics.risk.explanation}`;
 
       setMessages((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content: `Analysis for ${symbol}:\n\n${analysis.summary}\n\nKey Metrics:\n${Object.entries(
-            analysis.metrics
-          )
-            .map(([key, value]) => `${key}: ${value.value}\n${value.explanation}`)
-            .join("\n\n")}`,
-        },
+        { role: "assistant", content: formattedContent },
       ]);
     } catch (error) {
       console.error("Analysis error:", error);
@@ -69,61 +73,63 @@ export default function AIChat({ symbol }: AIAnalysisProps) {
 
   return (
     <Card className="h-[600px] flex flex-col">
-      <CardHeader>
-        <CardTitle className="flex justify-between items-center">
-          <span>AI Assistant</span>
-          {symbol && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAnalyze}
-              disabled={isAnalyzing}
+      <div className="p-4 border-b flex justify-between items-center">
+        <h2 className="text-lg font-semibold">AI Assistant</h2>
+        {symbol && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAnalyze}
+            disabled={isAnalyzing}
+            className="h-8"
+          >
+            {isAnalyzing ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : null}
+            Analyze {symbol}
+          </Button>
+        )}
+      </div>
+
+      <ScrollArea className="flex-1 px-4">
+        <div className="space-y-4 py-4">
+          {messages.map((message, i) => (
+            <div
+              key={i}
+              className={`flex ${
+                message.role === "assistant" ? "justify-start" : "justify-end"
+              }`}
             >
-              {isAnalyzing && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Analyze {symbol}
-            </Button>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex-1 flex flex-col">
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-4">
-            {messages.map((message, i) => (
               <div
-                key={i}
-                className={`flex ${
-                  message.role === "assistant" ? "justify-start" : "justify-end"
+                className={`rounded-lg px-3 py-2 text-sm max-w-[85%] ${
+                  message.role === "assistant"
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-primary text-primary-foreground"
                 }`}
               >
-                <div
-                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                    message.role === "assistant"
-                      ? "bg-secondary"
-                      : "bg-primary text-primary-foreground"
-                  }`}
-                >
-                  <p className="text-sm whitespace-pre-wrap">
-                    {message.content}
-                  </p>
-                </div>
+                <pre className="font-sans whitespace-pre-wrap">
+                  {message.content}
+                </pre>
               </div>
-            ))}
-          </div>
-        </ScrollArea>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
 
-        <div className="mt-4 flex gap-2">
+      <div className="p-4 border-t">
+        <div className="flex gap-2">
           <Input
             placeholder="Ask me anything about trading..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleSend()}
+            className="h-8"
           />
           <Button
             size="icon"
             onClick={handleSend}
             disabled={isChatting || !input.trim()}
+            className="h-8 w-8"
           >
             {isChatting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -132,7 +138,7 @@ export default function AIChat({ symbol }: AIAnalysisProps) {
             )}
           </Button>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }
