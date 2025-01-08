@@ -4,6 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Portfolio() {
   const { positions, account, isLoading, error } = useMarketData();
@@ -21,6 +22,11 @@ export default function Portfolio() {
           <p className="text-sm text-muted-foreground">
             Please configure your Alpaca API credentials to view your portfolio.
           </p>
+          <Link href="/profile">
+            <Button variant="outline" size="sm">
+              Go to Settings
+            </Button>
+          </Link>
         </div>
       </div>
     );

@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { setupSocialRoutes } from "./social";
+import { setupLearningRoutes } from "./learning";
 import { db } from "@db";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -20,6 +21,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Setting up social routes...");
     setupSocialRoutes(app);
     console.log("Social routes registered");
+
+    // Register learning routes
+    console.log("Setting up learning routes...");
+    setupLearningRoutes(app);
+    console.log("Learning routes registered");
 
     // Create and return the HTTP server
     const httpServer = createServer(app);

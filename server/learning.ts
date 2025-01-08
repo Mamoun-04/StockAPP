@@ -9,17 +9,25 @@ import {
 } from "@db/schema";
 import { eq, and, isNull, count } from "drizzle-orm";
 
+// Add type for authenticated request
+interface AuthenticatedRequest extends Express.Request {
+  user?: Express.User;
+}
+
 export function setupLearningRoutes(app: Express) {
   // Get all lessons with progress for current user
-  app.get("/api/lessons", async (req, res) => {
+  app.get("/api/lessons", async (req: AuthenticatedRequest, res) => {
     try {
       const user = req.user;
       if (!user?.id) {
-        return res.status(401).send("Not logged in");
+        return res.status(401).json({ error: "Not logged in" });
       }
 
       const allLessons = await db
-        .select()
+        .select({
+          lessons: lessons,
+          user_progress: userProgress,
+        })
         .from(lessons)
         .leftJoin(
           userProgress,
@@ -36,44 +44,60 @@ export function setupLearningRoutes(app: Express) {
       }));
 
       res.json(formattedLessons);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-      res.status(500).json({ error: errorMessage });
+    } catch (error: any) {
+      console.error("Error fetching lessons:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch lessons",
+        details: error.message 
+      });
     }
   });
 
-  // Get a specific lesson by ID
-  app.get("/api/lessons/:id", async (req, res) => {
+  // Get all achievements
+  app.get("/api/achievements", async (req: AuthenticatedRequest, res) => {
     try {
       const user = req.user;
       if (!user?.id) {
-        return res.status(401).send("Not logged in");
+        return res.status(401).json({ error: "Not logged in" });
       }
 
-      const lessonId = parseInt(req.params.id);
-      const lesson = await db
-        .select()
-        .from(lessons)
-        .where(eq(lessons.id, lessonId))
-        .limit(1);
+      const achievementsList = await db
+        .select({
+          achievements: achievements,
+          user_achievements: userAchievements,
+        })
+        .from(achievements)
+        .leftJoin(
+          userAchievements,
+          and(
+            eq(userAchievements.achievementId, achievements.id),
+            eq(userAchievements.userId, user.id)
+          )
+        );
 
-      if (!lesson.length) {
-        return res.status(404).send("Lesson not found");
-      }
+      const formattedAchievements = achievementsList.map(
+        ({ achievements: achievement, user_achievements }) => ({
+          ...achievement,
+          userAchievements: user_achievements ? [user_achievements] : [],
+        })
+      );
 
-      res.json(lesson[0]);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-      res.status(500).json({ error: errorMessage });
+      res.json(formattedAchievements);
+    } catch (error: any) {
+      console.error("Error fetching achievements:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch achievements",
+        details: error.message 
+      });
     }
   });
 
-  // Mark lesson as completed and award XP
-  app.post("/api/lessons/:id/complete", async (req, res) => {
+  // Mark lesson as completed
+  app.post("/api/lessons/:id/complete", async (req: AuthenticatedRequest, res) => {
     try {
       const user = req.user;
       if (!user?.id) {
-        return res.status(401).send("Not logged in");
+        return res.status(401).json({ error: "Not logged in" });
       }
 
       const lessonId = parseInt(req.params.id);
@@ -86,7 +110,7 @@ export function setupLearningRoutes(app: Express) {
         .limit(1);
 
       if (!lesson) {
-        return res.status(404).send("Lesson not found");
+        return res.status(404).json({ error: "Lesson not found" });
       }
 
       // Check if lesson is already completed
@@ -102,7 +126,7 @@ export function setupLearningRoutes(app: Express) {
         .limit(1);
 
       if (existingProgress?.completed) {
-        return res.status(400).send("Lesson already completed");
+        return res.status(400).json({ error: "Lesson already completed" });
       }
 
       // Start a transaction to update progress and award XP
@@ -141,7 +165,10 @@ export function setupLearningRoutes(app: Express) {
 
         // Check for new achievements
         const allAchievements = await tx
-          .select()
+          .select({
+            achievements: achievements,
+            user_achievements: userAchievements,
+          })
           .from(achievements)
           .leftJoin(
             userAchievements,
@@ -206,42 +233,12 @@ export function setupLearningRoutes(app: Express) {
       });
 
       res.json({ message: "Lesson completed successfully" });
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-      res.status(500).json({ error: errorMessage });
-    }
-  });
-
-  // Get user's achievements
-  app.get("/api/achievements", async (req, res) => {
-    try {
-      const user = req.user;
-      if (!user?.id) {
-        return res.status(401).send("Not logged in");
-      }
-
-      const achievementsList = await db
-        .select()
-        .from(achievements)
-        .leftJoin(
-          userAchievements,
-          and(
-            eq(userAchievements.achievementId, achievements.id),
-            eq(userAchievements.userId, user.id)
-          )
-        );
-
-      const formattedAchievements = achievementsList.map(
-        ({ achievements: achievement, user_achievements }) => ({
-          ...achievement,
-          userAchievements: user_achievements ? [user_achievements] : [],
-        })
-      );
-
-      res.json(formattedAchievements);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-      res.status(500).json({ error: errorMessage });
+    } catch (error: any) {
+      console.error("Error completing lesson:", error);
+      res.status(500).json({ 
+        error: "Failed to complete lesson",
+        details: error.message 
+      });
     }
   });
 }
