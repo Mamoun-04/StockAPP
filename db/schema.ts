@@ -9,6 +9,8 @@ export const users = pgTable("users", {
   displayName: text("display_name"),
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
+  education: text("education"),
+  occupation: text("occupation"),
   alpacaApiKey: text("alpaca_api_key"),
   alpacaSecretKey: text("alpaca_secret_key"),
   createdAt: timestamp("created_at").defaultNow(),

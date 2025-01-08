@@ -6,7 +6,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-
 // Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
@@ -59,27 +58,35 @@ const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunctio
       serveStatic(app);
     }
 
+    // Try to find an available port starting from 5000
     const tryPort = async (port: number): Promise<number> => {
-      return new Promise((resolve, reject) => {
-        server.listen(port, "0.0.0.0", () => {
-          resolve(port);
-        }).on('error', (err: any) => {
-          if (err.code === 'EADDRINUSE') {
-            server.close();
-            if (port < 5010) { // Try up to port 5010
-              tryPort(port + 1).then(resolve).catch(reject);
+      try {
+        await new Promise((resolve, reject) => {
+          const srv = server.listen(port, "0.0.0.0", () => {
+            resolve(port);
+          });
+
+          srv.on('error', (err: any) => {
+            if (err.code === 'EADDRINUSE') {
+              srv.close();
+              reject(err);
             } else {
-              reject(new Error('No available ports found'));
+              reject(err);
             }
-          } else {
-            reject(err);
-          }
+          });
         });
-      });
+        return port;
+      } catch (err) {
+        if (err.code === 'EADDRINUSE' && port < 5010) {
+          // Try next port
+          return tryPort(port + 1);
+        }
+        throw err;
+      }
     };
 
-    const port = await tryPort(5000);
-    log(`serving on port ${port}`);
+    const PORT = await tryPort(5000);
+    log(`Server started successfully on port ${PORT}`);
   } catch (err) {
     console.error('Failed to start server:', err);
     process.exit(1);

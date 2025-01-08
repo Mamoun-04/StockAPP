@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage";
 import TradingTermsPage from "./pages/TradingTermsPage";
 import LearningPage from "./pages/LearningPage";
 import FeedPage from "./pages/FeedPage";
+import ProfilePage from "./pages/ProfilePage";
 
 function App() {
   const { user, isLoading } = useUser();
@@ -29,6 +30,7 @@ function App() {
       <Route path="/study" component={LearningPage} />
       <Route path="/feed" component={FeedPage} />
       <Route path="/terms" component={TradingTermsPage} />
+      <Route path="/profile" component={ProfilePage} />
       <Route component={NotFound} />
     </Switch>
   );

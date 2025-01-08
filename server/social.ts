@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { db } from "@db";
 import { posts, comments, users, type SelectUser } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
+import { z } from "zod";
 
 // Add type for authenticated request
 interface AuthenticatedRequest extends Request {
@@ -16,6 +17,15 @@ const requireAuth = (req: AuthenticatedRequest, res: Response, next: Function) =
   }
   next();
 };
+
+// Profile update validation schema
+const profileUpdateSchema = z.object({
+  displayName: z.string().min(2, "Display name must be at least 2 characters").optional(),
+  bio: z.string().optional(),
+  avatarUrl: z.string().url("Invalid avatar URL").optional(),
+  education: z.string().optional(),
+  occupation: z.string().optional(),
+});
 
 export function setupSocialRoutes(app: Express) {
   // Get feed posts with author info and comments
@@ -147,15 +157,29 @@ export function setupSocialRoutes(app: Express) {
   app.put("/api/user/profile", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       console.log("Updating profile for user:", req.user?.id);
-      const { displayName, bio, avatarUrl } = req.body;
+
+      // Validate the request body
+      const result = profileUpdateSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ 
+          error: "Invalid input",
+          details: result.error.issues.map(i => i.message)
+        });
+      }
+
+      const updateData = result.data;
+
+      // Only include fields that are actually provided
+      const fieldsToUpdate: Partial<typeof updateData> = {};
+      if (updateData.displayName !== undefined) fieldsToUpdate.displayName = updateData.displayName;
+      if (updateData.bio !== undefined) fieldsToUpdate.bio = updateData.bio;
+      if (updateData.avatarUrl !== undefined) fieldsToUpdate.avatarUrl = updateData.avatarUrl;
+      if (updateData.education !== undefined) fieldsToUpdate.education = updateData.education;
+      if (updateData.occupation !== undefined) fieldsToUpdate.occupation = updateData.occupation;
 
       const [updatedUser] = await db
         .update(users)
-        .set({
-          displayName,
-          bio,
-          avatarUrl,
-        })
+        .set(fieldsToUpdate)
         .where(eq(users.id, req.user!.id))
         .returning();
 
