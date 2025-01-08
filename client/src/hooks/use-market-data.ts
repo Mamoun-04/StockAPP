@@ -118,7 +118,8 @@ export function useMarketData(symbol?: string) {
 
   const fetchHistoricalData = async (symbol: string, timeRange: string) => {
     try {
-      // Mock historical data with more realistic price movements
+      // Mock historical data for demonstration
+      // This would be replaced with actual API calls in production
       const now = new Date();
       const mockData: HistoricalData = [];
       let dataPoints = 0;
@@ -142,49 +143,36 @@ export function useMarketData(symbol?: string) {
           startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
           break;
         case "1Y":
-          dataPoints = 252; // Trading days in a year
+          dataPoints = 365;
           startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
           break;
         case "5Y":
-          dataPoints = 1260; // Trading days in 5 years
-          startDate = new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000);
+          dataPoints = 1825;
+          startDate = new Date(now.getTime() - 1825 * 24 * 60 * 60 * 1000);
           break;
       }
 
-      // Use current quote price as the end point
-      const currentPrice = quote.data?.price || 100;
-      let lastPrice = currentPrice;
-
-      // Generate more realistic price movements with trend and volatility
-      const trend = 0.0001; // Small upward trend
-      const volatility = 0.02; // 2% daily volatility
+      const basePrice = 100;
+      const volatility = 0.02;
 
       for (let i = 0; i < dataPoints; i++) {
         const currentDate = new Date(startDate.getTime() + (i * (now.getTime() - startDate.getTime()) / dataPoints));
-
-        // Random walk with drift
         const randomChange = (Math.random() - 0.5) * 2 * volatility;
-        const trendChange = trend;
-        const totalChange = randomChange + trendChange;
-
-        lastPrice = lastPrice * (1 + totalChange);
+        const price = basePrice * (1 + randomChange);
 
         mockData.push({
-          time: timeRange === "1D" 
-            ? currentDate.toLocaleTimeString() 
-            : currentDate.toLocaleDateString(),
-          price: lastPrice
+          time: currentDate.toLocaleDateString(),
+          price: price
         });
-      }
-
-      // Ensure the last point matches the current quote
-      if (mockData.length > 0 && quote.data) {
-        mockData[mockData.length - 1].price = quote.data.price;
       }
 
       return mockData;
     } catch (error) {
-      console.error('Error generating historical data:', error);
+      toast({
+        variant: "destructive",
+        title: "Failed to fetch historical data",
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
       return [];
     }
   };
@@ -193,6 +181,7 @@ export function useMarketData(symbol?: string) {
     quote: quote.data,
     positions: positions.data,
     account: account.data,
+    historicalData: null,
     isLoading: quote.isLoading || positions.isLoading || account.isLoading,
     error: quote.error || positions.error || account.error,
     placeTrade: tradeMutation.mutateAsync,
