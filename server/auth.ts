@@ -139,6 +139,8 @@ export async function setupAuth(app: Express) {
             password: hashedPassword,
             xp: 0,
             level: 1,
+            alpacaApiKey: process.env.ALPACA_API_KEY,
+            alpacaSecretKey: process.env.ALPACA_SECRET_KEY,
           })
           .returning();
 
@@ -149,8 +151,8 @@ export async function setupAuth(app: Express) {
           }
           return res.json({
             message: "Registration successful",
-            user: { 
-              id: newUser.id, 
+            user: {
+              id: newUser.id,
               username: newUser.username,
               displayName: newUser.displayName,
               education: newUser.education,
@@ -226,6 +228,8 @@ export async function setupAuth(app: Express) {
           bio: user.bio,
           xp: user.xp,
           level: user.level,
+          alpacaApiKey: user.alpacaApiKey,
+          alpacaSecretKey: user.alpacaSecretKey,
         });
       }
       res.status(401).send("Not logged in");

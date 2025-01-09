@@ -25,6 +25,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const httpServer = createServer(app);
     console.log("HTTP server created");
 
+    // Set up error handler after all routes
+    app.use((err: any, req: any, res: any, next: any) => {
+      console.error('Error:', err);
+      res.status(500).json({ 
+        message: "Internal server error",
+        error: err.message 
+      });
+    });
+
     return httpServer;
   } catch (error: any) {
     console.error("Failed to register routes:", error);

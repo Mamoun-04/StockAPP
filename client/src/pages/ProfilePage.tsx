@@ -14,6 +14,7 @@ import { Loader2 } from "lucide-react";
 import Header from "@/components/ui/header";
 import Footer from "@/components/ui/footer";
 
+// Profile update schema matching the backend validation
 const profileSchema = z.object({
   displayName: z.string().min(2, "Display name must be at least 2 characters").optional(),
   education: z.string().optional(),
@@ -22,6 +23,20 @@ const profileSchema = z.object({
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
+
+type UpdateProfileResponse = {
+  message: string;
+  user: {
+    id: number;
+    username: string;
+    displayName?: string;
+    education?: string;
+    occupation?: string;
+    bio?: string;
+    xp: number;
+    level: number;
+  };
+};
 
 export default function ProfilePage() {
   const { user } = useUser();
@@ -42,7 +57,7 @@ export default function ProfilePage() {
     },
   });
 
-  const updateProfileMutation = useMutation({
+  const updateProfileMutation = useMutation<UpdateProfileResponse, Error, ProfileFormData>({
     mutationFn: async (data: ProfileFormData) => {
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
@@ -60,7 +75,7 @@ export default function ProfilePage() {
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
       toast({
         title: "Success",
