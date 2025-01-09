@@ -145,3 +145,34 @@ export function setupAlpacaRoutes(app: Express) {
     }
   });
 }
+  app.post("/api/trade", requireAuth, checkAlpacaCredentials, async (req: AuthenticatedRequest, res) => {
+    try {
+      console.log("Executing trade:", req.body);
+      const alpaca = new Alpaca({
+        keyId: process.env.ALPACA_API_KEY!,
+        secretKey: process.env.ALPACA_SECRET_KEY!,
+        paper: true,
+        baseUrl: 'https://paper-api.alpaca.markets'
+      });
+
+      const { symbol, qty, side, type, timeInForce, limitPrice } = req.body;
+      
+      const order = await alpaca.createOrder({
+        symbol,
+        qty,
+        side,
+        type,
+        time_in_force: timeInForce,
+        limit_price: type === 'limit' ? limitPrice : undefined
+      });
+
+      console.log("Trade executed successfully:", order);
+      res.json(order);
+    } catch (error: any) {
+      console.error('Error executing trade:', error);
+      res.status(500).json({ 
+        error: "Failed to execute trade",
+        details: error.message 
+      });
+    }
+  });
