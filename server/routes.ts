@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { setupSocialRoutes } from "./social";
+import { setupAlpacaRoutes } from "./alpaca";
+import { setupOpenAIRoutes } from "./openai";
 import { db } from "@db";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -16,10 +18,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await setupAuth(app);
     console.log("Authentication routes registered");
 
-    // Register social routes after auth is setup
+    // Register other routes after auth is setup
+    console.log("Setting up alpaca routes...");
+    setupAlpacaRoutes(app);
+    console.log("Alpaca routes registered");
+
     console.log("Setting up social routes...");
     setupSocialRoutes(app);
     console.log("Social routes registered");
+
+    console.log("Setting up OpenAI routes...");
+    setupOpenAIRoutes(app);
+    console.log("OpenAI routes registered");
 
     // Create and return the HTTP server
     const httpServer = createServer(app);
