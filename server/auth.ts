@@ -113,7 +113,7 @@ export async function setupAuth(app: Express) {
         const enhancedUser = {
           ...user,
           alpacaApiKey: user.alpacaApiKey || process.env.ALPACA_API_KEY,
-          alpacaSecretKey: user.alpacaSecretKey || process.env.ALPACA_SECRET_KEY
+          alpacaApiKey: user.alpacaSecretKey || process.env.ALPACA_SECRET_KEY
         };
 
         done(null, enhancedUser);
