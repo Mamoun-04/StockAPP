@@ -54,6 +54,16 @@ export default function SentimentPanel({ symbol, className }: SentimentPanelProp
   return (
     <Card className={cn("h-[200px]", className)}>
       <CardContent className="h-full p-4">
+        {error ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <AlertTriangle className="h-8 w-8 mb-2" />
+            <p className="text-sm">Unable to load market sentiment</p>
+          </div>
+        ) : isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : (
         <div className="flex flex-col h-full">
           <div className="text-center mb-3">
             <h3 className="text-sm font-medium text-muted-foreground">Market Sentiment</h3>
@@ -107,6 +117,7 @@ export default function SentimentPanel({ symbol, className }: SentimentPanelProp
               </div>
             </ScrollArea>
           </div>
+        )}
         </div>
       </CardContent>
     </Card>
