@@ -42,18 +42,14 @@ export async function setupAuth(app: Express) {
       secret: process.env.REPL_ID || "trading-platform-secret",
       resave: false,
       saveUninitialized: false,
-      cookie: {},
+      cookie: {
+        secure: app.get("env") === "production",
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      },
       store: new MemoryStore({
         checkPeriod: 86400000, // prune expired entries every 24h
       }),
     };
-
-    if (app.get("env") === "production") {
-      app.set("trust proxy", 1);
-      sessionSettings.cookie = {
-        secure: true,
-      };
-    }
 
     app.use(session(sessionSettings));
     app.use(passport.initialize());
@@ -85,11 +81,13 @@ export async function setupAuth(app: Express) {
     );
 
     passport.serializeUser((user, done) => {
+      console.log("Serializing user:", user.id);
       done(null, user.id);
     });
 
     passport.deserializeUser(async (id: number, done) => {
       try {
+        console.log("Deserializing user:", id);
         const [user] = await db
           .select()
           .from(users)
@@ -107,67 +105,6 @@ export async function setupAuth(app: Express) {
       }
     });
 
-    // Register route
-    app.post("/api/register", async (req, res, next) => {
-      try {
-        console.log("Processing registration request");
-        const result = insertUserSchema.safeParse(req.body);
-        if (!result.success) {
-          return res
-            .status(400)
-            .send("Invalid input: " + result.error.issues.map(i => i.message).join(", "));
-        }
-
-        const { username, password } = result.data;
-
-        const [existingUser] = await db
-          .select()
-          .from(users)
-          .where(eq(users.username, username))
-          .limit(1);
-
-        if (existingUser) {
-          return res.status(400).send("Username already exists");
-        }
-
-        const hashedPassword = await crypto.hash(password);
-
-        const [newUser] = await db
-          .insert(users)
-          .values({
-            username,
-            password: hashedPassword,
-            xp: 0,
-            level: 1,
-            alpacaApiKey: process.env.ALPACA_API_KEY,
-            alpacaSecretKey: process.env.ALPACA_SECRET_KEY,
-          })
-          .returning();
-
-        req.login(newUser, (err) => {
-          if (err) {
-            console.error("Login after registration failed:", err);
-            return next(err);
-          }
-          return res.json({
-            message: "Registration successful",
-            user: {
-              id: newUser.id,
-              username: newUser.username,
-              displayName: newUser.displayName,
-              education: newUser.education,
-              occupation: newUser.occupation,
-              bio: newUser.bio,
-              xp: newUser.xp,
-              level: newUser.level,
-            },
-          });
-        });
-      } catch (error) {
-        console.error("Registration error:", error);
-        next(error);
-      }
-    });
 
     // Login route
     app.post("/api/login", (req, res, next) => {
@@ -178,7 +115,7 @@ export async function setupAuth(app: Express) {
         }
 
         if (!user) {
-          return res.status(400).send(info.message ?? "Login failed");
+          return res.status(400).json({ error: info.message ?? "Login failed" });
         }
 
         req.logIn(user, (err) => {
@@ -192,47 +129,26 @@ export async function setupAuth(app: Express) {
             user: {
               id: user.id,
               username: user.username,
-              displayName: user.displayName,
-              education: user.education,
-              occupation: user.occupation,
-              bio: user.bio,
-              xp: user.xp,
-              level: user.level,
+              alpacaApiKey: user.alpacaApiKey,
+              alpacaSecretKey: user.alpacaSecretKey
             },
           });
         });
       })(req, res, next);
     });
 
-    // Logout route
-    app.post("/api/logout", (req, res) => {
-      req.logout((err) => {
-        if (err) {
-          console.error("Logout error:", err);
-          return res.status(500).send("Logout failed");
-        }
-        res.json({ message: "Logout successful" });
-      });
-    });
-
     // Get current user route
     app.get("/api/user", (req, res) => {
-      if (req.isAuthenticated()) {
-        const user = req.user;
-        return res.json({
-          id: user.id,
-          username: user.username,
-          displayName: user.displayName,
-          education: user.education,
-          occupation: user.occupation,
-          bio: user.bio,
-          xp: user.xp,
-          level: user.level,
-          alpacaApiKey: user.alpacaApiKey,
-          alpacaSecretKey: user.alpacaSecretKey,
-        });
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Not logged in" });
       }
-      res.status(401).send("Not logged in");
+      const user = req.user!;
+      res.json({
+        id: user.id,
+        username: user.username,
+        alpacaApiKey: user.alpacaApiKey,
+        alpacaSecretKey: user.alpacaSecretKey
+      });
     });
 
     console.log("Authentication setup completed");

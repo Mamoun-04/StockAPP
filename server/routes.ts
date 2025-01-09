@@ -5,6 +5,7 @@ import { setupSocialRoutes } from "./social";
 import { setupAlpacaRoutes } from "./alpaca";
 import { setupOpenAIRoutes } from "./openai";
 import { db } from "@db";
+import express from 'express';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   try {
@@ -13,12 +14,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await db.query.users.findFirst();
     console.log("Database connection verified");
 
-    // Setup authentication first
+    // Setup JSON parsing middleware first
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: false }));
+
+    // Setup authentication next
     console.log("Setting up authentication routes...");
     await setupAuth(app);
     console.log("Authentication routes registered");
 
-    // Register other routes after auth is setup
+    // Register feature routes after auth is setup
     console.log("Setting up alpaca routes...");
     setupAlpacaRoutes(app);
     console.log("Alpaca routes registered");
@@ -31,18 +36,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     setupOpenAIRoutes(app);
     console.log("OpenAI routes registered");
 
+    // Add error handling middleware last
+    app.use((err: any, req: any, res: any, next: any) => {
+      console.error('Error:', err);
+      // Ensure we always send JSON responses, even for errors
+      res.status(err.status || 500).json({ 
+        error: err.message || "Internal Server Error",
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      });
+    });
+
     // Create and return the HTTP server
     const httpServer = createServer(app);
     console.log("HTTP server created");
-
-    // Set up error handler after all routes
-    app.use((err: any, req: any, res: any, next: any) => {
-      console.error('Error:', err);
-      res.status(500).json({ 
-        message: "Internal server error",
-        error: err.message 
-      });
-    });
 
     return httpServer;
   } catch (error: any) {
