@@ -72,6 +72,35 @@ export function setupAlpacaRoutes(app: Express) {
     }
   };
 
+  app.post("/api/trade", requireAuth, checkAlpacaCredentials, async (req: AuthenticatedRequest, res) => {
+    try {
+      const alpaca = new Alpaca({
+        keyId: req.user!.alpacaApiKey!,
+        secretKey: req.user!.alpacaSecretKey!,
+        paper: true,
+      });
+
+      const { symbol, qty, side, type, timeInForce, limitPrice } = req.body;
+
+      const order = await alpaca.createOrder({
+        symbol,
+        qty,
+        side,
+        type,
+        time_in_force: timeInForce,
+        limit_price: type === 'limit' ? limitPrice : undefined
+      });
+
+      res.json(order);
+    } catch (error: any) {
+      console.error('Error placing trade:', error);
+      res.status(500).json({ 
+        error: "Failed to place trade",
+        details: error.message 
+      });
+    }
+  });
+
   app.get("/api/market/quotes/:symbol", requireAuth, checkAlpacaCredentials, async (req: AuthenticatedRequest, res) => {
     try {
       console.log(`Fetching quote for symbol: ${req.params.symbol}`);

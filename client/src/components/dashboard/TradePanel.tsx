@@ -94,8 +94,13 @@ export default function TradePanel({ symbol }: TradePanelProps) {
       });
 
       reset();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Trade error:", error);
+      toast({
+        variant: "destructive",
+        title: "Trade Failed",
+        description: error.response?.data?.details || error.message || "Failed to place trade"
+      });
     }
   };
 
