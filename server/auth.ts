@@ -30,7 +30,10 @@ const crypto = {
 
 declare global {
   namespace Express {
-    interface User extends SelectUser {}
+    interface User extends SelectUser {
+      alpacaApiKey?: string;
+      alpacaSecretKey?: string;
+    }
   }
 }
 
@@ -72,7 +75,15 @@ export async function setupAuth(app: Express) {
           if (!isMatch) {
             return done(null, false, { message: "Incorrect password." });
           }
-          return done(null, user);
+
+          // Add Alpaca credentials from environment if not set for user
+          const enhancedUser = {
+            ...user,
+            alpacaApiKey: user.alpacaApiKey || process.env.ALPACA_API_KEY,
+            alpacaSecretKey: user.alpacaSecretKey || process.env.ALPACA_SECRET_KEY
+          };
+
+          return done(null, enhancedUser);
         } catch (err) {
           console.error("Authentication error:", err);
           return done(err);
@@ -98,7 +109,14 @@ export async function setupAuth(app: Express) {
           return done(null, false);
         }
 
-        done(null, user);
+        // Add Alpaca credentials from environment if not set for user
+        const enhancedUser = {
+          ...user,
+          alpacaApiKey: user.alpacaApiKey || process.env.ALPACA_API_KEY,
+          alpacaSecretKey: user.alpacaSecretKey || process.env.ALPACA_SECRET_KEY
+        };
+
+        done(null, enhancedUser);
       } catch (err) {
         console.error("Deserialization error:", err);
         done(err);
