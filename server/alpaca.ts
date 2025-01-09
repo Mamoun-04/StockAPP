@@ -75,9 +75,10 @@ export function setupAlpacaRoutes(app: Express) {
   app.post("/api/trade", requireAuth, checkAlpacaCredentials, async (req: AuthenticatedRequest, res) => {
     try {
       const alpaca = new Alpaca({
-        keyId: req.user!.alpacaApiKey!,
-        secretKey: req.user!.alpacaSecretKey!,
+        keyId: process.env.ALPACA_API_KEY || req.user!.alpacaApiKey!,
+        secretKey: process.env.ALPACA_SECRET_KEY || req.user!.alpacaSecretKey!,
         paper: true,
+        baseUrl: 'https://paper-api.alpaca.markets'
       });
 
       const { symbol, qty, side, type, timeInForce, limitPrice } = req.body;
@@ -105,9 +106,10 @@ export function setupAlpacaRoutes(app: Express) {
     try {
       console.log(`Fetching quote for symbol: ${req.params.symbol}`);
       const alpaca = new Alpaca({
-        keyId: req.user!.alpacaApiKey!,
-        secretKey: req.user!.alpacaSecretKey!,
+        keyId: process.env.ALPACA_API_KEY || req.user!.alpacaApiKey!,
+        secretKey: process.env.ALPACA_SECRET_KEY || req.user!.alpacaSecretKey!,
         paper: true,
+        baseUrl: 'https://paper-api.alpaca.markets'
       });
 
       const { symbol } = req.params;
@@ -137,9 +139,10 @@ export function setupAlpacaRoutes(app: Express) {
     try {
       console.log("Fetching positions");
       const alpaca = new Alpaca({
-        keyId: req.user!.alpacaApiKey!,
-        secretKey: req.user!.alpacaSecretKey!,
+        keyId: process.env.ALPACA_API_KEY || req.user!.alpacaApiKey!,
+        secretKey: process.env.ALPACA_SECRET_KEY || req.user!.alpacaSecretKey!,
         paper: true,
+        baseUrl: 'https://paper-api.alpaca.markets'
       });
 
       const positions = await alpaca.getPositions() as unknown as AlpacaPosition[];
@@ -167,9 +170,10 @@ export function setupAlpacaRoutes(app: Express) {
     try {
       console.log("Fetching account data");
       const alpaca = new Alpaca({
-        keyId: req.user!.alpacaApiKey!,
-        secretKey: req.user!.alpacaSecretKey!,
+        keyId: process.env.ALPACA_API_KEY || req.user!.alpacaApiKey!,
+        secretKey: process.env.ALPACA_SECRET_KEY || req.user!.alpacaSecretKey!,
         paper: true,
+        baseUrl: 'https://paper-api.alpaca.markets'
       });
 
       const account = await alpaca.getAccount() as unknown as AlpacaAccount;
