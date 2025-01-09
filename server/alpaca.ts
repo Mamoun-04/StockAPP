@@ -1,3 +1,4 @@
+
 import Alpaca from "@alpacahq/alpaca-trade-api";
 import type { Express, Request, Response, NextFunction } from "express";
 import { type SelectUser } from "@db/schema";
@@ -144,7 +145,7 @@ export function setupAlpacaRoutes(app: Express) {
       });
     }
   });
-}
+
   app.post("/api/trade", requireAuth, checkAlpacaCredentials, async (req: AuthenticatedRequest, res) => {
     try {
       console.log("Executing trade:", req.body);
@@ -176,3 +177,4 @@ export function setupAlpacaRoutes(app: Express) {
       });
     }
   });
+}
