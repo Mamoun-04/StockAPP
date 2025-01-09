@@ -19,7 +19,7 @@ export default function Header() {
                   Portfolio
                 </Button>
               </Link>
-              <Link href="/study">
+              <Link href="/learn">
                 <Button variant="ghost" className="flex items-center">
                   <BookOpen className="h-4 w-4 mr-2" />
                   Study
