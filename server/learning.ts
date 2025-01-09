@@ -11,15 +11,18 @@ import { eq, and, isNull, count } from "drizzle-orm";
 
 export function setupLearningRoutes(app: Express) {
   // Get all lessons with progress for current user
-  app.get("/api/lessons", async (req, res) => {
+  app.get("/api/lessons", async (req: any, res) => {
     try {
       const user = req.user;
       if (!user?.id) {
-        return res.status(401).send("Not logged in");
+        return res.status(401).json({ error: "Not logged in" });
       }
 
       const allLessons = await db
-        .select()
+        .select({
+          lessons: lessons,
+          user_progress: userProgress
+        })
         .from(lessons)
         .leftJoin(
           userProgress,
@@ -29,6 +32,10 @@ export function setupLearningRoutes(app: Express) {
           )
         )
         .orderBy(lessons.order);
+
+      if (!allLessons) {
+        return res.status(500).json({ error: "Failed to fetch lessons" });
+      }
 
       const formattedLessons = allLessons.map(({ lessons: lesson, user_progress }) => ({
         ...lesson,
