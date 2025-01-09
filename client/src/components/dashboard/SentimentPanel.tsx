@@ -41,7 +41,7 @@ export default function SentimentPanel({ symbol, className }: SentimentPanelProp
   };
 
   return (
-    <Card className={cn("h-[200px]", className)}>
+    <Card className={cn("h-[250px]", className)}>
       <CardContent className="h-full p-4">
         {error ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
