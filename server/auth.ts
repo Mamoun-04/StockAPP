@@ -43,7 +43,7 @@ export async function setupAuth(app: Express) {
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: app.get("env") === "production",
+        secure: false, // Set to true only in production with HTTPS
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       },
       store: new MemoryStore({
@@ -95,7 +95,7 @@ export async function setupAuth(app: Express) {
           .limit(1);
 
         if (!user) {
-          return done(new Error('User not found'));
+          return done(null, false);
         }
 
         done(null, user);
@@ -104,7 +104,6 @@ export async function setupAuth(app: Express) {
         done(err);
       }
     });
-
 
     // Login route
     app.post("/api/login", (req, res, next) => {
@@ -142,6 +141,7 @@ export async function setupAuth(app: Express) {
       if (!req.isAuthenticated()) {
         return res.status(401).json({ error: "Not logged in" });
       }
+
       const user = req.user!;
       res.json({
         id: user.id,
