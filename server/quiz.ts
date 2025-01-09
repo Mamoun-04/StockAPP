@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "@db";
 import {
   quizQuestions,
@@ -6,17 +6,33 @@ import {
   userQuizProgress,
   userQuizAttempts,
   users,
+  type SelectUser,
 } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 
-export function setupQuizRoutes(app: Express) {
-  // Get quiz sections
-  app.get("/api/quiz/sections", async (req, res) => {
-    try {
-      if (!req.user?.id) {
-        return res.status(401).send("Not logged in");
-      }
+// Extend Express.Request with authenticated user
+interface RequestWithUser extends Request {
+  user: SelectUser;
+}
 
+// Authentication middleware
+function requireAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  next();
+}
+
+export function setupQuizRoutes(app: Express): void {
+  // Get quiz sections
+  app.get("/api/quiz/sections", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as SelectUser;
       const sections = await db
         .select({
           id: quizSections.id,
@@ -30,18 +46,16 @@ export function setupQuizRoutes(app: Express) {
 
       res.json(sections);
     } catch (error: unknown) {
+      console.error('Error fetching quiz sections:', error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: errorMessage });
     }
   });
 
   // Get user progress for all sections
-  app.get("/api/quiz/progress", async (req, res) => {
+  app.get("/api/quiz/progress", requireAuth, async (req: Request, res: Response) => {
     try {
-      if (!req.user?.id) {
-        return res.status(401).send("Not logged in");
-      }
-
+      const user = req.user as SelectUser;
       const progress = await db
         .select({
           sectionId: userQuizProgress.sectionId,
@@ -52,22 +66,20 @@ export function setupQuizRoutes(app: Express) {
           attemptsCount: userQuizProgress.attemptsCount,
         })
         .from(userQuizProgress)
-        .where(eq(userQuizProgress.userId, req.user.id));
+        .where(eq(userQuizProgress.userId, user.id));
 
       res.json(progress);
     } catch (error: unknown) {
+      console.error('Error fetching quiz progress:', error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: errorMessage });
     }
   });
 
   // Get quiz questions for a section
-  app.get("/api/quiz/questions", async (req, res) => {
+  app.get("/api/quiz/questions", requireAuth, async (req: Request, res: Response) => {
     try {
-      if (!req.user?.id) {
-        return res.status(401).send("Not logged in");
-      }
-
+      const user = req.user as SelectUser;
       const sectionId = req.query.sectionId ? parseInt(req.query.sectionId as string) : undefined;
 
       const questions = await db
@@ -92,12 +104,9 @@ export function setupQuizRoutes(app: Express) {
   });
 
   // Submit quiz answer
-  app.post("/api/quiz/submit", async (req, res) => {
+  app.post("/api/quiz/submit", requireAuth, async (req: Request, res: Response) => {
     try {
-      if (!req.user?.id) {
-        return res.status(401).send("Not logged in");
-      }
-
+      const user = req.user as SelectUser;
       const { questionId, answer, isNewAttempt } = req.body;
 
       const [question] = await db
@@ -114,23 +123,27 @@ export function setupQuizRoutes(app: Express) {
 
       // Record the attempt
       await db.insert(userQuizAttempts).values({
-        userId: req.user.id,
+        userId: user.id,
         questionId,
         correct,
       });
 
-      // Update progress and award XP if correct
+      // Start a transaction for updating progress and XP
       await db.transaction(async (tx) => {
-        // Get current user data
-        const [user] = await tx
+        // Get current user data for XP calculation
+        const [currentUser] = await tx
           .select()
           .from(users)
-          .where(eq(users.id, req.user!.id))
+          .where(eq(users.id, user.id))
           .limit(1);
+
+        if (!currentUser) {
+          throw new Error("User not found");
+        }
 
         // Fixed XP reward of 100 per correct answer
         const xpReward = correct ? 100 : 0;
-        const newXP = (user?.xp || 0) + xpReward;
+        const newXP = currentUser.xp + xpReward;
         const newLevel = Math.floor(newXP / 1000) + 1;
 
         // Update user XP and level
@@ -140,7 +153,7 @@ export function setupQuizRoutes(app: Express) {
             xp: newXP,
             level: newLevel,
           })
-          .where(eq(users.id, req.user!.id));
+          .where(eq(users.id, user.id));
 
         // Update section progress
         const [existingProgress] = await tx
@@ -148,8 +161,8 @@ export function setupQuizRoutes(app: Express) {
           .from(userQuizProgress)
           .where(
             and(
-              eq(userQuizProgress.userId, req.user!.id),
-              eq(userQuizProgress.sectionId, question.sectionId!)
+              eq(userQuizProgress.userId, user.id),
+              eq(userQuizProgress.sectionId, question.sectionId)
             )
           )
           .limit(1);
@@ -168,8 +181,8 @@ export function setupQuizRoutes(app: Express) {
             .where(eq(userQuizProgress.id, existingProgress.id));
         } else {
           await tx.insert(userQuizProgress).values({
-            userId: req.user!.id,
-            sectionId: question.sectionId!,
+            userId: user.id,
+            sectionId: question.sectionId,
             score: xpReward,
             bestScore: xpReward,
             totalQuestionsAnswered: 1,

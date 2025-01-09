@@ -41,30 +41,12 @@ export function setupAlpacaRoutes(app: Express) {
   // Middleware to check Alpaca credentials
   const checkAlpacaCredentials = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      // Use environment variables as fallback
-      if (!req.user?.alpacaApiKey && process.env.ALPACA_API_KEY) {
-        console.log("Using environment Alpaca API key");
-        req.user = {
-          ...req.user!,
-          alpacaApiKey: process.env.ALPACA_API_KEY
-        };
-      }
-
-      if (!req.user?.alpacaSecretKey && process.env.ALPACA_SECRET_KEY) {
-        console.log("Using environment Alpaca secret key");
-        req.user = {
-          ...req.user!,
-          alpacaSecretKey: process.env.ALPACA_SECRET_KEY
-        };
-      }
-
-      if (!req.user?.alpacaApiKey || !req.user?.alpacaSecretKey) {
-        console.error("Alpaca credentials missing");
+      if (!process.env.ALPACA_API_KEY || !process.env.ALPACA_SECRET_KEY) {
+        console.error("Environment Alpaca credentials missing");
         return res.status(400).json({ 
-          error: "Alpaca API credentials not configured" 
+          error: "Alpaca API credentials not configured in environment" 
         });
       }
-
       next();
     } catch (error) {
       console.error("Error in checkAlpacaCredentials:", error);
@@ -72,42 +54,12 @@ export function setupAlpacaRoutes(app: Express) {
     }
   };
 
-  app.post("/api/trade", requireAuth, checkAlpacaCredentials, async (req: AuthenticatedRequest, res) => {
-    try {
-      const alpaca = new Alpaca({
-        keyId: process.env.ALPACA_API_KEY || req.user!.alpacaApiKey!,
-        secretKey: process.env.ALPACA_SECRET_KEY || req.user!.alpacaSecretKey!,
-        paper: true,
-        baseUrl: 'https://paper-api.alpaca.markets'
-      });
-
-      const { symbol, qty, side, type, timeInForce, limitPrice } = req.body;
-
-      const order = await alpaca.createOrder({
-        symbol,
-        qty,
-        side,
-        type,
-        time_in_force: timeInForce,
-        limit_price: type === 'limit' ? limitPrice : undefined
-      });
-
-      res.json(order);
-    } catch (error: any) {
-      console.error('Error placing trade:', error);
-      res.status(500).json({ 
-        error: "Failed to place trade",
-        details: error.message 
-      });
-    }
-  });
-
   app.get("/api/market/quotes/:symbol", requireAuth, checkAlpacaCredentials, async (req: AuthenticatedRequest, res) => {
     try {
       console.log(`Fetching quote for symbol: ${req.params.symbol}`);
       const alpaca = new Alpaca({
-        keyId: process.env.ALPACA_API_KEY || req.user!.alpacaApiKey!,
-        secretKey: process.env.ALPACA_SECRET_KEY || req.user!.alpacaSecretKey!,
+        keyId: process.env.ALPACA_API_KEY!,
+        secretKey: process.env.ALPACA_SECRET_KEY!,
         paper: true,
         baseUrl: 'https://paper-api.alpaca.markets'
       });
@@ -139,8 +91,8 @@ export function setupAlpacaRoutes(app: Express) {
     try {
       console.log("Fetching positions");
       const alpaca = new Alpaca({
-        keyId: process.env.ALPACA_API_KEY || req.user!.alpacaApiKey!,
-        secretKey: process.env.ALPACA_SECRET_KEY || req.user!.alpacaSecretKey!,
+        keyId: process.env.ALPACA_API_KEY!,
+        secretKey: process.env.ALPACA_SECRET_KEY!,
         paper: true,
         baseUrl: 'https://paper-api.alpaca.markets'
       });
@@ -170,8 +122,8 @@ export function setupAlpacaRoutes(app: Express) {
     try {
       console.log("Fetching account data");
       const alpaca = new Alpaca({
-        keyId: process.env.ALPACA_API_KEY || req.user!.alpacaApiKey!,
-        secretKey: process.env.ALPACA_SECRET_KEY || req.user!.alpacaSecretKey!,
+        keyId: process.env.ALPACA_API_KEY!,
+        secretKey: process.env.ALPACA_SECRET_KEY!,
         paper: true,
         baseUrl: 'https://paper-api.alpaca.markets'
       });

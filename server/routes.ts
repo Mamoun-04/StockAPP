@@ -4,6 +4,8 @@ import { setupAuth } from "./auth";
 import { setupSocialRoutes } from "./social";
 import { setupAlpacaRoutes } from "./alpaca";
 import { setupOpenAIRoutes } from "./openai";
+import { setupLearningRoutes } from "./learning";
+import { setupQuizRoutes } from "./quiz";
 import { db } from "@db";
 import express from 'express';
 
@@ -35,6 +37,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Setting up OpenAI routes...");
     setupOpenAIRoutes(app);
     console.log("OpenAI routes registered");
+
+    console.log("Setting up learning routes...");
+    setupLearningRoutes(app);
+    console.log("Learning routes registered");
+
+    console.log("Setting up quiz routes...");
+    setupQuizRoutes(app);
+    console.log("Quiz routes registered");
 
     // Add error handling middleware last
     app.use((err: any, req: any, res: any, next: any) => {

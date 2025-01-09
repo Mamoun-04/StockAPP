@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "@db";
 import {
   lessons,
@@ -6,18 +6,33 @@ import {
   achievements,
   userAchievements,
   users,
+  type SelectUser,
 } from "@db/schema";
 import { eq, and, isNull, count } from "drizzle-orm";
 
-export function setupLearningRoutes(app: Express) {
-  // Get all lessons with progress for current user
-  app.get("/api/lessons", async (req: any, res) => {
-    try {
-      const user = req.user;
-      if (!user?.id) {
-        return res.status(401).json({ error: "Not logged in" });
-      }
+// Extend Express.Request with authenticated user
+interface RequestWithUser extends Request {
+  user: SelectUser;
+}
 
+// Authentication middleware
+function requireAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  next();
+}
+
+export function setupLearningRoutes(app: Express): void {
+  // Get all lessons with progress for current user
+  app.get("/api/lessons", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as SelectUser;
       const allLessons = await db
         .select({
           lessons: lessons,
@@ -33,10 +48,6 @@ export function setupLearningRoutes(app: Express) {
         )
         .orderBy(lessons.order);
 
-      if (!allLessons) {
-        return res.status(500).json({ error: "Failed to fetch lessons" });
-      }
-
       const formattedLessons = allLessons.map(({ lessons: lesson, user_progress }) => ({
         ...lesson,
         userProgress: user_progress ? [user_progress] : [],
@@ -44,19 +55,16 @@ export function setupLearningRoutes(app: Express) {
 
       res.json(formattedLessons);
     } catch (error: unknown) {
+      console.error('Error fetching lessons:', error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: errorMessage });
     }
   });
 
   // Get a specific lesson by ID
-  app.get("/api/lessons/:id", async (req, res) => {
+  app.get("/api/lessons/:id", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = req.user;
-      if (!user?.id) {
-        return res.status(401).send("Not logged in");
-      }
-
+      const user = req.user as SelectUser;
       const lessonId = parseInt(req.params.id);
       const lesson = await db
         .select()
@@ -70,19 +78,16 @@ export function setupLearningRoutes(app: Express) {
 
       res.json(lesson[0]);
     } catch (error: unknown) {
+      console.error('Error fetching lesson:', error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: errorMessage });
     }
   });
 
   // Mark lesson as completed and award XP
-  app.post("/api/lessons/:id/complete", async (req, res) => {
+  app.post("/api/lessons/:id/complete", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = req.user;
-      if (!user?.id) {
-        return res.status(401).send("Not logged in");
-      }
-
+      const user = req.user as SelectUser;
       const lessonId = parseInt(req.params.id);
       const { score } = req.body;
 
@@ -214,19 +219,16 @@ export function setupLearningRoutes(app: Express) {
 
       res.json({ message: "Lesson completed successfully" });
     } catch (error: unknown) {
+      console.error('Error completing lesson:', error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: errorMessage });
     }
   });
 
   // Get user's achievements
-  app.get("/api/achievements", async (req, res) => {
+  app.get("/api/achievements", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = req.user;
-      if (!user?.id) {
-        return res.status(401).send("Not logged in");
-      }
-
+      const user = req.user as SelectUser;
       const achievementsList = await db
         .select()
         .from(achievements)
@@ -247,6 +249,7 @@ export function setupLearningRoutes(app: Express) {
 
       res.json(formattedAchievements);
     } catch (error: unknown) {
+      console.error('Error fetching achievements:', error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: errorMessage });
     }
