@@ -27,7 +27,7 @@ function App() {
   return (
     <Switch>
       <Route path="/" component={DashboardPage} />
-      <Route path="/study" component={LearningPage} />
+      <Route path="/learn" component={LearningPage} />
       <Route path="/feed" component={FeedPage} />
       <Route path="/terms" component={TradingTermsPage} />
       <Route path="/profile" component={ProfilePage} />
