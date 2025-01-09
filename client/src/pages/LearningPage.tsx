@@ -47,12 +47,26 @@ export default function LearningPage() {
   const [showTerms, setShowTerms] = useState(false);
 
   const { data: lessons = [], isLoading: lessonsLoading, error: lessonsError } = useQuery<Lesson[]>({
-    queryKey: ['/api/lessons'],
+    queryKey: ['lessons'],
+    queryFn: async () => {
+      const response = await fetch('/api/lessons');
+      if (!response.ok) {
+        throw new Error('Failed to load lessons');
+      }
+      return response.json();
+    },
     enabled: !!user?.id,
   });
 
   const { data: achievements = [], isLoading: achievementsLoading, error: achievementsError } = useQuery<Achievement[]>({
-    queryKey: ['/api/achievements'],
+    queryKey: ['achievements'],
+    queryFn: async () => {
+      const response = await fetch('/api/achievements');
+      if (!response.ok) {
+        throw new Error('Failed to load achievements');
+      }
+      return response.json();
+    },
     enabled: !!user?.id,
   });
 
