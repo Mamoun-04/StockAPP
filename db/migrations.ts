@@ -8,7 +8,7 @@ export async function migrate() {
       id SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
-      displayname TEXT,
+      display_name TEXT,
       bio TEXT,
       avatar_url TEXT,
       education TEXT,
