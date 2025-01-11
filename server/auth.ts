@@ -123,12 +123,70 @@ export async function setupAuth(app: Express) {
       }
     });
 
+    // Register route
+    app.post("/api/register", async (req, res) => {
+      try {
+        console.log("Registration attempt:", req.body);
+        const parseResult = insertUserSchema.safeParse(req.body);
+
+        if (!parseResult.success) {
+          return res.status(400).json({ 
+            error: parseResult.error.issues.map(i => i.message).join(", ") 
+          });
+        }
+
+        const { username, password } = parseResult.data;
+
+        // Check if user exists
+        const [existingUser] = await db
+          .select()
+          .from(users)
+          .where(eq(users.username, username))
+          .limit(1);
+
+        if (existingUser) {
+          return res.status(400).json({ error: "Username already exists" });
+        }
+
+        const hashedPassword = await crypto.hash(password);
+
+        // Create user
+        const [newUser] = await db
+          .insert(users)
+          .values({
+            username,
+            password: hashedPassword,
+            level: 1,
+            xp: 0,
+          })
+          .returning();
+
+        // Log the user in
+        req.login(newUser, (err) => {
+          if (err) {
+            console.error("Login after registration failed:", err);
+            return res.status(500).json({ error: "Error logging in after registration" });
+          }
+          return res.json({
+            message: "Registration successful",
+            user: {
+              id: newUser.id,
+              username: newUser.username,
+            },
+          });
+        });
+      } catch (error) {
+        console.error("Registration error:", error);
+        res.status(500).json({ error: "Registration failed" });
+      }
+    });
+
     // Login route
     app.post("/api/login", (req, res, next) => {
       passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
         if (err) {
           console.error("Login error:", err);
-          return next(err);
+          return res.status(500).json({ error: "Login failed" });
         }
 
         if (!user) {
@@ -138,7 +196,7 @@ export async function setupAuth(app: Express) {
         req.logIn(user, (err) => {
           if (err) {
             console.error("Login session creation failed:", err);
-            return next(err);
+            return res.status(500).json({ error: "Login failed" });
           }
 
           return res.json({
@@ -152,6 +210,16 @@ export async function setupAuth(app: Express) {
           });
         });
       })(req, res, next);
+    });
+
+    // Logout route
+    app.post("/api/logout", (req, res) => {
+      req.logout((err) => {
+        if (err) {
+          return res.status(500).json({ error: "Logout failed" });
+        }
+        res.json({ message: "Logged out successfully" });
+      });
     });
 
     // Get current user route
