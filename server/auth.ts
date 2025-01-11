@@ -123,7 +123,6 @@ export async function setupAuth(app: Express) {
       }
     });
 
-    // Register route
     app.post("/api/register", async (req, res) => {
       try {
         console.log("Registration attempt:", req.body);
@@ -172,6 +171,8 @@ export async function setupAuth(app: Express) {
             user: {
               id: newUser.id,
               username: newUser.username,
+              alpacaApiKey: process.env.ALPACA_API_KEY,
+              alpacaSecretKey: process.env.ALPACA_SECRET_KEY
             },
           });
         });
@@ -181,7 +182,6 @@ export async function setupAuth(app: Express) {
       }
     });
 
-    // Login route
     app.post("/api/login", (req, res, next) => {
       passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
         if (err) {
@@ -212,7 +212,6 @@ export async function setupAuth(app: Express) {
       })(req, res, next);
     });
 
-    // Logout route
     app.post("/api/logout", (req, res) => {
       req.logout((err) => {
         if (err) {
@@ -222,7 +221,6 @@ export async function setupAuth(app: Express) {
       });
     });
 
-    // Get current user route
     app.get("/api/user", (req, res) => {
       if (!req.isAuthenticated()) {
         return res.status(401).json({ error: "Not logged in" });
