@@ -47,8 +47,9 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
 
     try {
       const response = await fetch(
-        `/api/stocks/search?q=${encodeURIComponent(searchTerm)}`
+        `/api/market/search?q=${encodeURIComponent(searchTerm)}`
       );
+      if (!response.ok) throw new Error('Search failed');
       const data = await response.json();
 
       // Process results with fuzzy matching
@@ -116,10 +117,12 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
   };
 
   const handleSelect = (symbol: string) => {
-    onSelect(symbol);
-    setSearchTerm("");
-    setResults([]);
-    setShowResults(false);
+    if (onSelect) {
+      onSelect(symbol);
+      setSearchTerm("");
+      setResults([]);
+      setShowResults(false);
+    }
   };
 
   return (
