@@ -9,6 +9,7 @@ import { useUser } from "@/hooks/use-user";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, MoreHorizontal, Settings, DollarSign, LayoutList, MessageSquare } from "lucide-react";
+import Footer from "@/components/ui/footer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,14 +76,14 @@ export default function FeedPage() {
       setNewPost("");
       toast({
         title: "Success",
-        description: "Your post has been published!",
+        description: "Your post has been published!"
       });
     },
     onError: (error: Error) => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: error.message
       });
     },
   });
@@ -103,14 +104,14 @@ export default function FeedPage() {
       setNewComment({});
       toast({
         title: "Success",
-        description: "Your comment has been added!",
+        description: "Your comment has been added!"
       });
     },
     onError: (error: Error) => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: error.message
       });
     },
   });
@@ -165,11 +166,10 @@ export default function FeedPage() {
   const navigateTo = (path: string) => () => setLocation(path);
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-background">
       <div className="flex flex-1">
-        {/* Left Sidebar */}
-        <aside className="w-64 h-screen sticky top-0 bg-background border-r flex flex-col">
-          <nav className="space-y-2 p-4">
+        <nav className="w-64 h-screen sticky top-0 bg-background border-r flex flex-col">
+          <div className="flex flex-col space-y-2 p-4">
             <Button
               variant="ghost"
               className="w-full justify-start"
@@ -225,7 +225,7 @@ export default function FeedPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </nav>
+          </div>
 
           <div className="mt-auto p-4 border-t">
             <DropdownMenu>
@@ -253,10 +253,9 @@ export default function FeedPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </aside>
+        </nav>
 
-        {/* Main Content */}
-        <main className="flex-1 border-l min-h-screen">
+        <main className="flex-1 border-l">
           <div className="max-w-2xl mx-auto px-4 py-6">
             <Card className="mb-6">
               <CardContent className="pt-6">
@@ -370,15 +369,7 @@ export default function FeedPage() {
           </div>
         </main>
       </div>
-
-      {/* Footer */}
-      <footer className="bg-background border-t py-4 px-6">
-        <div className="max-w-7xl mx-auto">
-          <p className="text-sm text-muted-foreground text-center">
-            © 2025 Trading Platform. All rights reserved.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
