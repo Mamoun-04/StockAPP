@@ -26,7 +26,7 @@ export default function NavigationSidebar() {
   return (
     <div className="w-64 border-r h-screen bg-background fixed left-0 top-0 z-40">
       <nav className="pt-16 px-6">
-        <div className="space-y-3">
+        <div className="space-y-2">
           {navItems.map((item) => (
             <Link key={item.label} href={item.href}>
               <Button
