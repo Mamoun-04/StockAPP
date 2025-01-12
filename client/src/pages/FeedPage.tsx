@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUser } from "@/hooks/use-user";
 import Header from "@/components/ui/header";
 import Footer from "@/components/ui/footer";
+import NavigationSidebar from "@/components/ui/navigation-sidebar";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -173,140 +174,143 @@ export default function FeedPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Header />
-      <main className="flex-grow p-8">
-        <div className="max-w-3xl mx-auto space-y-6">
-          {/* New Post Form */}
-          <Card>
-            <CardContent className="pt-6">
-              <Textarea
-                placeholder="Share your trading insights..."
-                value={newPost}
-                onChange={(e) => setNewPost(e.target.value)}
-                className="min-h-[100px] mb-4"
-              />
-              <div className="flex justify-end">
-                <Button 
-                  onClick={handlePost}
-                  disabled={createPostMutation.isPending}
-                >
-                  {createPostMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : null}
-                  Post
-                </Button>
+    <div className="min-h-screen flex flex-col bg-background">
+      <NavigationSidebar />
+      <div className="ml-64 flex flex-col min-h-screen">
+        <Header className="fixed top-0 right-0 left-64 z-50 border-b bg-background" />
+        <main className="flex-grow p-8 mt-16">
+          <div className="max-w-3xl mx-auto space-y-6">
+            {/* New Post Form */}
+            <Card>
+              <CardContent className="pt-6">
+                <Textarea
+                  placeholder="Share your trading insights..."
+                  value={newPost}
+                  onChange={(e) => setNewPost(e.target.value)}
+                  className="min-h-[100px] mb-4"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handlePost}
+                    disabled={createPostMutation.isPending}
+                  >
+                    {createPostMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    Post
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Posts Feed */}
+            {isLoading ? (
+              <div className="text-center py-4">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                <p className="text-sm text-muted-foreground mt-2">Loading posts...</p>
               </div>
-            </CardContent>
-          </Card>
+            ) : (
+              <div className="space-y-4">
+                {posts.map((post) => (
+                  <Card key={post.id}>
+                    <CardContent className="pt-6">
+                      {/* Post Header */}
+                      <div className="flex items-center space-x-4 mb-4">
+                        <Avatar>
+                          {post.author?.avatarUrl && (
+                            <AvatarImage
+                              src={post.author.avatarUrl}
+                              alt={renderAuthorName(post.author)}
+                            />
+                          )}
+                          <AvatarFallback>
+                            {post.author ? getInitials(post.author) : '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-semibold">
+                            {renderAuthorName(post.author)}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                          </div>
+                        </div>
+                      </div>
 
-          {/* Posts Feed */}
-          {isLoading ? (
-            <div className="text-center py-4">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-              <p className="text-sm text-muted-foreground mt-2">Loading posts...</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {posts.map((post) => (
-                <Card key={post.id}>
-                  <CardContent className="pt-6">
-                    {/* Post Header */}
-                    <div className="flex items-center space-x-4 mb-4">
-                      <Avatar>
-                        {post.author?.avatarUrl && (
-                          <AvatarImage 
-                            src={post.author.avatarUrl} 
-                            alt={renderAuthorName(post.author)}
-                          />
-                        )}
-                        <AvatarFallback>
-                          {post.author ? getInitials(post.author) : '?'}
-                        </AvatarFallback>
-                      </Avatar>
+                      {/* Post Content */}
                       <div>
-                        <div className="font-semibold">
-                          {renderAuthorName(post.author)}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
-                        </div>
+                        <p className="text-sm">{post.content}</p>
+                        {renderTradeInfo(post)}
                       </div>
-                    </div>
 
-                    {/* Post Content */}
-                    <div>
-                      <p className="text-sm">{post.content}</p>
-                      {renderTradeInfo(post)}
-                    </div>
-
-                    {/* Comments Section */}
-                    <div className="mt-4">
-                      <div className="text-sm font-medium text-muted-foreground mb-2">
-                        {post.comments?.length || 0} comments
-                      </div>
-                      <ScrollArea className="h-[200px]">
-                        <div className="space-y-4">
-                          {post.comments?.map((comment) => (
-                            <div key={comment.id} className="flex space-x-3">
-                              <Avatar className="h-6 w-6">
-                                {comment.author?.avatarUrl && (
-                                  <AvatarImage 
-                                    src={comment.author.avatarUrl} 
-                                    alt={renderAuthorName(comment.author)}
-                                  />
-                                )}
-                                <AvatarFallback>
-                                  {comment.author ? getInitials(comment.author) : '?'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <div className="text-sm font-medium">
-                                  {renderAuthorName(comment.author)}
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  {comment.content}
-                                </p>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                      {/* Comments Section */}
+                      <div className="mt-4">
+                        <div className="text-sm font-medium text-muted-foreground mb-2">
+                          {post.comments?.length || 0} comments
+                        </div>
+                        <ScrollArea className="h-[200px]">
+                          <div className="space-y-4">
+                            {post.comments?.map((comment) => (
+                              <div key={comment.id} className="flex space-x-3">
+                                <Avatar className="h-6 w-6">
+                                  {comment.author?.avatarUrl && (
+                                    <AvatarImage
+                                      src={comment.author.avatarUrl}
+                                      alt={renderAuthorName(comment.author)}
+                                    />
+                                  )}
+                                  <AvatarFallback>
+                                    {comment.author ? getInitials(comment.author) : '?'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="text-sm font-medium">
+                                    {renderAuthorName(comment.author)}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    {comment.content}
+                                  </p>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
+                            ))}
+                          </div>
+                        </ScrollArea>
 
-                      {/* Add Comment */}
-                      <div className="mt-4 flex gap-2">
-                        <Textarea
-                          placeholder="Write a comment..."
-                          value={newComment[post.id] || ''}
-                          onChange={(e) => setNewComment({
-                            ...newComment,
-                            [post.id]: e.target.value
-                          })}
-                          className="min-h-[60px]"
-                        />
-                        <Button
-                          size="sm"
-                          className="self-end"
-                          disabled={addCommentMutation.isPending}
-                          onClick={() => handleComment(post.id)}
-                        >
-                          {addCommentMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : 'Comment'}
-                        </Button>
+                        {/* Add Comment */}
+                        <div className="mt-4 flex gap-2">
+                          <Textarea
+                            placeholder="Write a comment..."
+                            value={newComment[post.id] || ''}
+                            onChange={(e) => setNewComment({
+                              ...newComment,
+                              [post.id]: e.target.value
+                            })}
+                            className="min-h-[60px]"
+                          />
+                          <Button
+                            size="sm"
+                            className="self-end"
+                            disabled={addCommentMutation.isPending}
+                            onClick={() => handleComment(post.id)}
+                          >
+                            {addCommentMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : 'Comment'}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
-      <Footer />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+        <Footer className="border-t bg-background" />
+      </div>
     </div>
   );
 }
