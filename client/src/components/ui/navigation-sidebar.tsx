@@ -28,12 +28,12 @@ export default function NavigationSidebar() {
   return (
     <div className="w-64 border-r h-screen bg-background fixed left-0 top-0 z-40">
       <nav className="pt-16 px-6">
-        <div className="space-y-4">
+        <div className="space-y-3">
           {navItems.map((item) => (
             <Link key={item.label} href={item.href}>
               <Button
                 variant="ghost"
-                className="w-[90%] justify-start text-lg py-6 px-6 font-normal"
+                className="w-[90%] justify-start text-lg py-4 px-6 font-normal"
               >
                 <item.icon className="h-6 w-6 mr-4" />
                 {item.label}
@@ -42,7 +42,7 @@ export default function NavigationSidebar() {
           ))}
           <Button
             variant="ghost"
-            className="w-[90%] justify-start text-lg py-6 px-6 font-normal"
+            className="w-[90%] justify-start text-lg py-4 px-6 font-normal"
           >
             <MoreHorizontal className="h-6 w-6 mr-4" />
             More
