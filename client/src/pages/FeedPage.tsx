@@ -187,7 +187,7 @@ export default function FeedPage() {
                   placeholder="Share your trading insights..."
                   value={newPost}
                   onChange={(e) => setNewPost(e.target.value)}
-                  className="min-h-[100px] mb-4"
+                  className="resize-none h-[120px] mb-4 focus:ring-2 focus:ring-primary focus:ring-offset-2"
                 />
                 <div className="flex justify-end">
                   <Button
@@ -288,7 +288,7 @@ export default function FeedPage() {
                               ...newComment,
                               [post.id]: e.target.value
                             })}
-                            className="min-h-[60px]"
+                            className="resize-none h-[80px] focus:ring-2 focus:ring-primary focus:ring-offset-2"
                           />
                           <Button
                             size="sm"
