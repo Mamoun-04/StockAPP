@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
 import StockChart from "@/components/dashboard/StockChart";
 import Portfolio from "@/components/dashboard/Portfolio";
-import AIChat from "@/components/dashboard/AIChat";
 import StockSearch from "@/components/dashboard/StockSearch";
 import TradePanel from "@/components/dashboard/TradePanel";
 import SentimentPanel from "@/components/dashboard/SentimentPanel";
@@ -62,18 +61,11 @@ export default function DashboardPage() {
               </Card>
             </div>
 
-            {/* AI Section */}
+            {/* Sentiment Section */}
             <div className="col-span-12 md:col-span-3">
               {selectedSymbol && (
-                <div className="mb-6">
-                  <SentimentPanel symbol={selectedSymbol} />
-                </div>
+                <SentimentPanel symbol={selectedSymbol} />
               )}
-              <Card>
-                <div className="h-[500px] overflow-hidden">
-                  <AIChat symbol={selectedSymbol} />
-                </div>
-              </Card>
             </div>
           </div>
         </div>
