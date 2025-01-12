@@ -175,10 +175,10 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <NavigationSidebar />
-      <div className="ml-64 flex flex-col min-h-screen">
-        <Header />
-        <main className="flex-grow p-8 mt-16">
+      <Header />
+      <div className="flex flex-1">
+        <NavigationSidebar />
+        <main className="flex-grow p-8">
           <div className="max-w-3xl mx-auto space-y-6">
             {/* New Post Form */}
             <Card>
@@ -314,8 +314,8 @@ export default function FeedPage() {
             )}
           </div>
         </main>
-        <Footer />
       </div>
+      <Footer />
     </div>
   );
 }
