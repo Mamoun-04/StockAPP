@@ -285,18 +285,15 @@ export default function FeedPage() {
                             placeholder="Write a comment..."
                             value={newComment[post.id] || ''}
                             onChange={(e) => {
-                              const target = e.target;
-                              // Reset height before calculating scrollHeight
-                              target.style.height = '40px';
-                              // Set new height based on content
-                              const newHeight = Math.min(target.scrollHeight, 100);
-                              target.style.height = `${newHeight}px`;
+                              // Auto-resize the textarea
+                              e.target.style.height = '40px'; // Initial height
+                              e.target.style.height = `${Math.min(e.target.scrollHeight, 100)}px`; // Limit max height
                               setNewComment({
                                 ...newComment,
-                                [post.id]: target.value
+                                [post.id]: e.target.value
                               });
                             }}
-                            className="flex-1 min-h-[40px] resize-none py-2 focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                            className="flex-1 min-h-[40px] max-h-[40px] py-2 resize-none overflow-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2" //overflow-hidden removes scrollbar
                           />
                           <Button
                             size="sm"
