@@ -2,6 +2,12 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { LogOut, Users, BookOpen, LineChart } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Header() {
   const { logout } = useUser();
@@ -19,12 +25,26 @@ export default function Header() {
                   Portfolio
                 </Button>
               </Link>
-              <Link href="/learn">
-                <Button variant="ghost" className="flex items-center">
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  Study
-                </Button>
-              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center">
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Study
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem asChild>
+                    <Link href="/learn/quizzes">
+                      <span className="w-full">Quizzes</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/learn/lessons">
+                      <span className="w-full">Lessons</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Link href="/feed">
                 <Button variant="ghost" className="flex items-center">
                   <LineChart className="h-4 w-4 mr-2" />
