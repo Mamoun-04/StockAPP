@@ -177,7 +177,7 @@ export default function FeedPage() {
     <div className="min-h-screen flex flex-col bg-background">
       <NavigationSidebar />
       <div className="ml-64 flex flex-col min-h-screen">
-        <Header className="fixed top-0 right-0 left-64 z-50 border-b bg-background" />
+        <Header />
         <main className="flex-grow p-8 mt-16">
           <div className="max-w-3xl mx-auto space-y-6">
             {/* New Post Form */}
@@ -284,15 +284,20 @@ export default function FeedPage() {
                           <Textarea
                             placeholder="Write a comment..."
                             value={newComment[post.id] || ''}
-                            onChange={(e) => setNewComment({
-                              ...newComment,
-                              [post.id]: e.target.value
-                            })}
-                            className="resize-none h-[80px] focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                            onChange={(e) => {
+                              // Auto-resize the textarea
+                              e.target.style.height = '40px'; // Initial height
+                              e.target.style.height = `${Math.min(e.target.scrollHeight, 100)}px`; // Limit max height
+                              setNewComment({
+                                ...newComment,
+                                [post.id]: e.target.value
+                              });
+                            }}
+                            className="flex-1 min-h-[40px] max-h-[40px] py-2 resize-none overflow-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2" //overflow-hidden removes scrollbar
                           />
                           <Button
                             size="sm"
-                            className="self-end"
+                            className="self-end h-[40px]"
                             disabled={addCommentMutation.isPending}
                             onClick={() => handleComment(post.id)}
                           >
@@ -309,7 +314,7 @@ export default function FeedPage() {
             )}
           </div>
         </main>
-        <Footer className="border-t bg-background" />
+        <Footer />
       </div>
     </div>
   );

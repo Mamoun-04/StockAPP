@@ -7,7 +7,6 @@ import {
   MessageSquare,
   Bookmark,
   Users,
-  Crown,
   User,
   MoreHorizontal,
 } from "lucide-react";
@@ -21,7 +20,6 @@ export default function NavigationSidebar() {
     { icon: MessageSquare, label: "Messages", href: "/messages" },
     { icon: Bookmark, label: "Bookmarks", href: "/bookmarks" },
     { icon: Users, label: "Communities", href: "/communities" },
-    { icon: Crown, label: "Premium", href: "/premium" },
     { icon: User, label: "Profile", href: "/profile" },
   ];
 
@@ -33,7 +31,7 @@ export default function NavigationSidebar() {
             <Link key={item.label} href={item.href}>
               <Button
                 variant="ghost"
-                className="w-[90%] justify-start text-lg py-4 px-6 font-normal"
+                className="w-[90%] justify-start text-lg py-6 px-6 font-normal h-auto"
               >
                 <item.icon className="h-6 w-6 mr-4" />
                 {item.label}
@@ -42,7 +40,7 @@ export default function NavigationSidebar() {
           ))}
           <Button
             variant="ghost"
-            className="w-[90%] justify-start text-lg py-4 px-6 font-normal"
+            className="w-[90%] justify-start text-lg py-6 px-6 font-normal h-auto"
           >
             <MoreHorizontal className="h-6 w-6 mr-4" />
             More
