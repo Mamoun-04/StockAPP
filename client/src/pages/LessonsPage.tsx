@@ -86,9 +86,33 @@ export default function LessonPage() {
     }
   };
 
+  const queryClient = useQueryClient();
+  
+  const completeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/lessons/${lesson.id}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ score: 100 })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to complete lesson');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lessons'] });
+      setIsLessonOpen(false);
+    }
+  });
+
   const nextSection = () => {
     if (currentSectionIndex < lesson.sections.length - 1) {
       setCurrentSectionIndex(prev => prev + 1);
+    } else if (currentSectionIndex === lesson.sections.length - 1) {
+      completeMutation.mutate();
     }
   };
 
