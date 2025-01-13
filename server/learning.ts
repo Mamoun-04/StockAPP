@@ -76,6 +76,15 @@ export function setupLearningRoutes(app: Express): void {
         return res.status(404).send("Lesson not found");
       }
 
+      // Check if content needs to be generated
+      if (!lesson[0].content) {
+        const generatedContent = await generateLesson(lesson[0].topic, lesson[0].difficulty);
+        await db.update(lessons)
+          .set({ content: generatedContent })
+          .where(eq(lessons.id, lessonId));
+        lesson[0].content = generatedContent;
+      }
+
       res.json(lesson[0]);
     } catch (error: unknown) {
       console.error('Error fetching lesson:', error);
