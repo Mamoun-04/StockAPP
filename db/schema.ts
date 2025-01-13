@@ -124,6 +124,21 @@ export const posts = pgTable("posts", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const postLikes = pgTable("post_likes", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").references(() => posts.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const reposts = pgTable("reposts", {
+  id: serial("id").primaryKey(),
+  originalPostId: integer("original_post_id").references(() => posts.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  content: text("content"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const comments = pgTable("comments", {
   id: serial("id").primaryKey(),
   postId: integer("post_id").references(() => posts.id).notNull(),
@@ -144,6 +159,8 @@ export const postsRelations = relations(posts, ({ one, many }) => ({
     references: [users.id],
   }),
   comments: many(comments),
+  likes: many(postLikes),
+  reposts: many(reposts, { relationName: "originalPost" }),
 }));
 
 export const commentsRelations = relations(comments, ({ one }) => ({
@@ -153,6 +170,28 @@ export const commentsRelations = relations(comments, ({ one }) => ({
   }),
   author: one(users, {
     fields: [comments.userId],
+    references: [users.id],
+  }),
+}));
+
+export const postLikesRelations = relations(postLikes, ({ one }) => ({
+  post: one(posts, {
+    fields: [postLikes.postId],
+    references: [posts.id],
+  }),
+  user: one(users, {
+    fields: [postLikes.userId],
+    references: [users.id],
+  }),
+}));
+
+export const repostsRelations = relations(reposts, ({ one }) => ({
+  originalPost: one(posts, {
+    fields: [reposts.originalPostId],
+    references: [posts.id],
+  }),
+  user: one(users, {
+    fields: [reposts.userId],
     references: [users.id],
   }),
 }));

@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { db } from "@db";
-import { posts, comments, users, type SelectUser } from "@db/schema";
-import { eq, desc } from "drizzle-orm";
+import { posts, comments, users, postLikes, type SelectUser } from "@db/schema";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { z } from "zod";
 
 // Add type for authenticated request
@@ -18,15 +18,6 @@ const requireAuth = (req: AuthenticatedRequest, res: Response, next: Function) =
   next();
 };
 
-// Profile update validation schema
-const profileUpdateSchema = z.object({
-  displayName: z.string().min(2, "Display name must be at least 2 characters").optional(),
-  bio: z.string().optional(),
-  avatarUrl: z.string().url("Invalid avatar URL").optional(),
-  education: z.string().optional(),
-  occupation: z.string().optional(),
-});
-
 export function setupSocialRoutes(app: Express) {
   // Get feed posts with author info and comments
   app.get("/api/feed", requireAuth, async (req: AuthenticatedRequest, res) => {
@@ -41,13 +32,34 @@ export function setupSocialRoutes(app: Express) {
             },
             orderBy: desc(comments.createdAt),
           },
+          likes: true,
         },
         orderBy: desc(posts.createdAt),
-        limit: 50, // Limit the number of posts to prevent overload
+        limit: 50,
       });
 
-      console.log("Found posts:", feedPosts.length);
-      res.json(feedPosts);
+      // Add likes count and user's like status to each post
+      const postsWithLikes = await Promise.all(feedPosts.map(async (post) => {
+        const [[{ count }]] = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(postLikes)
+          .where(eq(postLikes.postId, post.id));
+
+        const userLike = await db.query.postLikes.findFirst({
+          where: and(
+            eq(postLikes.postId, post.id),
+            eq(postLikes.userId, req.user!.id)
+          ),
+        });
+
+        return {
+          ...post,
+          likesCount: Number(count),
+          isLiked: !!userLike,
+        };
+      }));
+
+      res.json(postsWithLikes);
     } catch (error: any) {
       console.error("Error fetching feed:", error);
       res.status(500).json({ 
@@ -152,6 +164,131 @@ export function setupSocialRoutes(app: Express) {
       });
     }
   });
+
+  // Like a post
+  app.post("/api/posts/:postId/like", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      console.log(`User ${req.user?.id} attempting to like post ${postId}`);
+
+      // Check if post exists
+      const post = await db.query.posts.findFirst({
+        where: eq(posts.id, postId),
+      });
+
+      if (!post) {
+        return res.status(404).json({ error: "Post not found" });
+      }
+
+      // Check if user already liked the post
+      const existingLike = await db.query.postLikes.findFirst({
+        where: and(
+          eq(postLikes.postId, postId),
+          eq(postLikes.userId, req.user!.id)
+        ),
+      });
+
+      if (existingLike) {
+        // Unlike the post
+        await db.delete(postLikes).where(eq(postLikes.id, existingLike.id));
+        console.log(`User ${req.user?.id} unliked post ${postId}`);
+        return res.json({ liked: false });
+      }
+
+      // Like the post
+      await db.insert(postLikes).values({
+        postId,
+        userId: req.user!.id,
+        createdAt: new Date(),
+      });
+
+      console.log(`User ${req.user?.id} liked post ${postId}`);
+      res.json({ liked: true });
+    } catch (error: any) {
+      console.error("Error liking/unliking post:", error);
+      res.status(500).json({ 
+        error: "Failed to like/unlike post",
+        details: error.message 
+      });
+    }
+  });
+
+  // Get post likes count and user's like status
+  app.get("/api/posts/:postId/likes", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const postId = parseInt(req.params.postId);
+
+      const [[{ count }]] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(postLikes)
+        .where(eq(postLikes.postId, postId));
+
+      const userLike = await db.query.postLikes.findFirst({
+        where: and(
+          eq(postLikes.postId, postId),
+          eq(postLikes.userId, req.user!.id)
+        ),
+      });
+
+      res.json({
+        count: Number(count),
+        liked: !!userLike,
+      });
+    } catch (error: any) {
+      console.error("Error getting post likes:", error);
+      res.status(500).json({ 
+        error: "Failed to get post likes",
+        details: error.message 
+      });
+    }
+  });
+
+  // Repost a post
+  app.post("/api/posts/:postId/repost", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      const { content } = req.body;
+
+      // Check if post exists
+      const post = await db.query.posts.findFirst({
+        where: eq(posts.id, postId),
+      });
+
+      if (!post) {
+        return res.status(404).json({ error: "Post not found" });
+      }
+
+      // Create repost
+      const [newRepost] = await db.insert(reposts).values({
+        originalPostId: postId,
+        userId: req.user!.id,
+        content: content || null,
+        createdAt: new Date(),
+      }).returning();
+
+      // Return the repost with user information
+      const repostWithDetails = await db.query.reposts.findFirst({
+        where: eq(reposts.id, newRepost.id),
+        with: {
+          user: true,
+          originalPost: {
+            with: {
+              author: true,
+            },
+          },
+        },
+      });
+
+      res.json(repostWithDetails);
+    } catch (error: any) {
+      console.error("Error reposting:", error);
+      res.status(500).json({ 
+        error: "Failed to repost",
+        details: error.message 
+      });
+    }
+  });
+
 
   // Update user profile
   app.put("/api/user/profile", requireAuth, async (req: AuthenticatedRequest, res) => {
