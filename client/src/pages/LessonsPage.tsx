@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { ChevronRight, BookOpen } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import Header from "@/components/ui/header";
 import Footer from "@/components/ui/footer";
+import { Flashcard } from "@/components/ui/flashcard";
 import {
   Dialog,
   DialogContent,
@@ -15,109 +16,54 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-// Dummy lesson content
-const LESSONS_DATA = [
-  {
-    id: 1,
-    title: "Introduction to Stock Market",
-    description: "Learn the basics of how the stock market works",
-    content: `
-      The stock market is a vital part of the global economy where shares of publicly traded companies are bought and sold. Here are the key concepts:
+// Transform lesson content into fill-in-the-blank flashcard format
+function createFlashcardsFromLesson(content: string) {
+  const lines = content.split('\n').filter(line => line.trim());
+  const flashcards = [];
 
-      1. What is a Stock?
-      - A stock represents ownership in a company
-      - When you buy a stock, you become a shareholder
-      - The value of your stock can increase or decrease based on company performance
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\d+\./.test(line)) {
+      const topic = line.replace(/^\d+\.\s*/, '').trim();
+      let details = [];
 
-      2. How the Market Works
-      - Stocks are traded on exchanges like NYSE and NASDAQ
-      - Prices are determined by supply and demand
-      - Trading happens during market hours (9:30 AM - 4:00 PM EST)
+      i++;
+      while (i < lines.length && !/^\d+\./.test(lines[i])) {
+        if (lines[i].trim()) {
+          details.push(lines[i].trim());
+        }
+        i++;
+      }
+      i--; // Move back one step since for loop will increment
 
-      3. Basic Terms
-      - Bull Market: When prices are rising
-      - Bear Market: When prices are falling
-      - Dividend: Payment made to shareholders
-      - Market Cap: Total value of a company's shares
+      if (details.length > 0) {
+        // Create fill-in-the-blank style questions
+        const key = topic.split(' ')[0]; // Use first word as the blank
+        flashcards.push({
+          question: `${topic.replace(key, '_____')} ?`,
+          answer: key
+        });
 
-      4. Getting Started
-      - Open a brokerage account
-      - Research companies you're interested in
-      - Start with a diversified portfolio
-      - Monitor your investments regularly
-    `,
-    difficulty: "beginner",
-    xpReward: 100,
-  },
-  {
-    id: 2,
-    title: "Understanding Market Analysis",
-    description: "Learn about fundamental and technical analysis",
-    content: `
-      Market analysis is crucial for making informed investment decisions. There are two main types:
+        // Create additional cards from the details
+        details.forEach(detail => {
+          const words = detail.split(' ');
+          const keyWordIndex = Math.floor(words.length / 2);
+          const keyWord = words[keyWordIndex];
+          const question = words.map((word, idx) => 
+            idx === keyWordIndex ? '_____' : word
+          ).join(' ');
 
-      1. Fundamental Analysis
-      - Study of company financials
-      - Industry analysis
-      - Economic indicators
-      - Company management and strategy
+          flashcards.push({
+            question: question,
+            answer: keyWord
+          });
+        });
+      }
+    }
+  }
 
-      2. Technical Analysis
-      - Price charts and patterns
-      - Volume indicators
-      - Moving averages
-      - Trend analysis
-
-      3. Key Metrics
-      - P/E Ratio
-      - EPS (Earnings Per Share)
-      - Book Value
-      - Market Cap
-
-      4. Analysis Tools
-      - Financial statements
-      - Industry reports
-      - News and updates
-      - Technical charting tools
-    `,
-    difficulty: "intermediate",
-    xpReward: 150,
-  },
-  {
-    id: 3,
-    title: "Risk Management Strategies",
-    description: "Learn how to protect your investments",
-    content: `
-      Risk management is essential for successful trading. Here are key strategies:
-
-      1. Diversification
-      - Spread investments across different sectors
-      - Mix different asset types
-      - Geographic diversification
-      - Risk/reward balance
-
-      2. Position Sizing
-      - Determine appropriate position sizes
-      - Use of stop-loss orders
-      - Portfolio rebalancing
-      - Risk per trade calculation
-
-      3. Risk Assessment
-      - Market risk
-      - Company-specific risk
-      - Economic risk
-      - Political risk
-
-      4. Practical Tips
-      - Never invest more than you can afford to lose
-      - Keep emergency funds separate
-      - Regular portfolio review
-      - Stay informed about market conditions
-    `,
-    difficulty: "advanced",
-    xpReward: 200,
-  },
-];
+  return flashcards;
+}
 
 type Lesson = {
   id: number;
@@ -126,15 +72,39 @@ type Lesson = {
   content: string;
   difficulty: string;
   xpReward: number;
+  userProgress?: Array<{
+    completed: boolean;
+    score: number;
+  }>;
 };
 
 export default function LessonsPage() {
+  const queryClient = useQueryClient();
   const { user } = useUser();
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [showFlashcards, setShowFlashcards] = useState(false);
 
-  const { data: userProgress = [] } = useQuery({
-    queryKey: ['/api/lessons/progress'],
+  // Fetch lessons data from API
+  const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
+    queryKey: ['/api/lessons'],
     enabled: !!user?.id,
+  });
+
+  const completeLessonMutation = useMutation({
+    mutationFn: async (lessonId: number) => {
+      const response = await fetch(`/api/lessons/${lessonId}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ score: 100 }),
+      });
+      if (!response.ok) throw new Error('Failed to complete lesson');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/lessons'] });
+    },
   });
 
   const getDifficultyColor = (difficulty: string) => {
@@ -147,6 +117,16 @@ export default function LessonsPage() {
         return 'bg-red-500';
       default:
         return 'bg-gray-500';
+    }
+  };
+
+  const handleLessonComplete = async () => {
+    if (!selectedLesson) return;
+    setShowFlashcards(false);
+    try {
+      await completeLessonMutation.mutateAsync(selectedLesson.id);
+    } catch (error) {
+      console.error('Failed to complete lesson:', error);
     }
   };
 
@@ -163,52 +143,58 @@ export default function LessonsPage() {
             <CardContent>
               <ScrollArea className="h-[600px] pr-4">
                 <div className="space-y-4">
-                  {LESSONS_DATA.map((lesson) => (
-                    <Card key={lesson.id} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <h3 className="font-medium">{lesson.title}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {lesson.description}
-                          </p>
+                  {isLoading ? (
+                    <div className="text-center py-4">Loading lessons...</div>
+                  ) : (
+                    lessons.map((lesson) => (
+                      <Card key={lesson.id} className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <h3 className="font-medium">{lesson.title}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {lesson.description}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <Badge
+                              variant="secondary"
+                              className={getDifficultyColor(lesson.difficulty)}
+                            >
+                              {lesson.difficulty}
+                            </Badge>
+                            <Badge variant="outline">+{lesson.xpReward} XP</Badge>
+                            <Dialog open={showFlashcards} onOpenChange={setShowFlashcards}>
+                              <DialogTrigger asChild>
+                                <button
+                                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                                  onClick={() => {
+                                    setSelectedLesson(lesson);
+                                    setShowFlashcards(true);
+                                  }}
+                                >
+                                  <BookOpen className="mr-2 h-4 w-4" />
+                                  Start Lesson
+                                </button>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-3xl">
+                                <DialogHeader>
+                                  <DialogTitle>{lesson.title}</DialogTitle>
+                                </DialogHeader>
+                                {selectedLesson && (
+                                  <div className="mt-4">
+                                    <Flashcard
+                                      cards={createFlashcardsFromLesson(selectedLesson.content)}
+                                      onComplete={handleLessonComplete}
+                                    />
+                                  </div>
+                                )}
+                              </DialogContent>
+                            </Dialog>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <Badge
-                            variant="secondary"
-                            className={getDifficultyColor(lesson.difficulty)}
-                          >
-                            {lesson.difficulty}
-                          </Badge>
-                          <Badge variant="outline">+{lesson.xpReward} XP</Badge>
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <button
-                                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-                                onClick={() => setSelectedLesson(lesson)}
-                              >
-                                <BookOpen className="mr-2 h-4 w-4" />
-                                Read Lesson
-                              </button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-3xl">
-                              <DialogHeader>
-                                <DialogTitle>{lesson.title}</DialogTitle>
-                              </DialogHeader>
-                              <ScrollArea className="mt-4 h-[60vh]">
-                                <div className="prose prose-sm dark:prose-invert">
-                                  {lesson.content.split('\n').map((paragraph, idx) => (
-                                    <p key={idx} className="mb-4">
-                                      {paragraph}
-                                    </p>
-                                  ))}
-                                </div>
-                              </ScrollArea>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
+                      </Card>
+                    ))
+                  )}
                 </div>
               </ScrollArea>
             </CardContent>
