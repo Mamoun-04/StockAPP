@@ -8,7 +8,7 @@ import {
   users,
   type SelectUser,
 } from "@db/schema";
-import { eq, and } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 // Extend Express.Request with authenticated user
 interface RequestWithUser extends Request {
@@ -32,7 +32,6 @@ export function setupQuizRoutes(app: Express): void {
   // Get quiz sections
   app.get("/api/quiz/sections", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = req.user as SelectUser;
       const sections = await db
         .select({
           id: quizSections.id,
@@ -79,7 +78,6 @@ export function setupQuizRoutes(app: Express): void {
   // Get quiz questions for a section
   app.get("/api/quiz/questions", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = req.user as SelectUser;
       const sectionId = req.query.sectionId ? parseInt(req.query.sectionId as string) : undefined;
 
       if (!sectionId) {
@@ -132,61 +130,49 @@ export function setupQuizRoutes(app: Express): void {
         correct,
       });
 
-      // Start a transaction for updating progress and XP
+      // Find or create user progress for this section
+      const existingProgress = await db
+        .select()
+        .from(userQuizProgress)
+        .where(
+          and(
+            eq(userQuizProgress.userId, user.id),
+            eq(userQuizProgress.sectionId, question.sectionId as number)
+          )
+        )
+        .limit(1)
+        .then(rows => rows[0]);
+
+      // Update progress in a transaction
       await db.transaction(async (tx) => {
-        // Get current user data for XP calculation
-        const [currentUser] = await tx
-          .select()
-          .from(users)
-          .where(eq(users.id, user.id))
-          .limit(1);
-
-        if (!currentUser) {
-          throw new Error("User not found");
-        }
-
-        // Fixed XP reward of 100 per correct answer
         const xpReward = correct ? 100 : 0;
-        const newXP = currentUser.xp + xpReward;
-        const newLevel = Math.floor(newXP / 1000) + 1;
 
         // Update user XP and level
         await tx
           .update(users)
           .set({
-            xp: newXP,
-            level: newLevel,
+            xp: Number(user.xp || 0) + xpReward,
+            level: Math.floor((Number(user.xp || 0) + xpReward) / 1000) + 1,
           })
           .where(eq(users.id, user.id));
 
-        // Update section progress
-        const [existingProgress] = await tx
-          .select()
-          .from(userQuizProgress)
-          .where(
-            and(
-              eq(userQuizProgress.userId, user.id),
-              eq(userQuizProgress.sectionId, question.sectionId)
-            )
-          )
-          .limit(1);
-
         if (existingProgress) {
-          const newScore = existingProgress.score + xpReward;
+          // Update existing progress
           await tx
             .update(userQuizProgress)
             .set({
-              score: newScore,
-              bestScore: Math.max(existingProgress.bestScore, newScore),
+              score: existingProgress.score + xpReward,
+              bestScore: Math.max(existingProgress.bestScore, existingProgress.score + xpReward),
               totalQuestionsAnswered: existingProgress.totalQuestionsAnswered + 1,
               correctAnswers: existingProgress.correctAnswers + (correct ? 1 : 0),
               attemptsCount: existingProgress.attemptsCount + (isNewAttempt ? 1 : 0),
             })
             .where(eq(userQuizProgress.id, existingProgress.id));
         } else {
+          // Create new progress entry
           await tx.insert(userQuizProgress).values({
             userId: user.id,
-            sectionId: question.sectionId,
+            sectionId: question.sectionId as number,
             score: xpReward,
             bestScore: xpReward,
             totalQuestionsAnswered: 1,
