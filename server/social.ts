@@ -94,88 +94,79 @@ export function setupSocialRoutes(app: Express) {
         return res.status(400).json({ error: "Invalid post ID" });
       }
 
-      // Start a transaction to handle like/unlike atomically
-      await db.transaction(async (tx) => {
-        // Check if post exists and lock it for update
-        const [post] = await tx
-          .select()
-          .from(posts)
-          .where(eq(posts.id, postId))
-          .limit(1)
-          .forUpdate(); // Lock the row to prevent concurrent updates
+      console.log(`Processing like/unlike for post ${postId} by user ${user.id}`);
+
+      const result = await db.transaction(async (tx) => {
+        // Check if post exists
+        const post = await tx.query.posts.findFirst({
+          where: eq(posts.id, postId),
+          with: {
+            likes: true,
+          },
+        });
 
         if (!post) {
+          console.log(`Post ${postId} not found`);
           throw new Error("Post not found");
         }
 
-        // Check if user already liked the post
-        const [existingLike] = await tx
-          .select()
-          .from(postLikes)
-          .where(and(
-            eq(postLikes.postId, postId),
-            eq(postLikes.userId, user.id)
-          ))
-          .limit(1);
+        const hasLiked = post.likes.some(like => like.userId === user.id);
+        console.log(`User ${user.id} has ${hasLiked ? 'already' : 'not'} liked post ${postId}`);
 
-        if (existingLike) {
-          // Unlike: Remove like and decrement count
-          await tx
-            .delete(postLikes)
+        if (hasLiked) {
+          // Unlike
+          console.log(`Removing like for post ${postId}`);
+          await tx.delete(postLikes)
             .where(and(
               eq(postLikes.postId, postId),
               eq(postLikes.userId, user.id)
             ));
 
-          await tx
-            .update(posts)
-            .set({ 
-              likesCount: post.likesCount > 0 ? post.likesCount - 1 : 0,
+          const [updatedPost] = await tx.update(posts)
+            .set({
+              likesCount: Math.max(0, post.likesCount - 1),
               updatedAt: new Date()
             })
-            .where(eq(posts.id, postId));
+            .where(eq(posts.id, postId))
+            .returning();
+
+          console.log(`Updated post ${postId} likes count to ${updatedPost.likesCount}`);
+          return { liked: false, likesCount: updatedPost.likesCount };
         } else {
-          // Like: Add like and increment count
-          await tx
-            .insert(postLikes)
+          // Like
+          console.log(`Adding like for post ${postId}`);
+          await tx.insert(postLikes)
             .values({
               postId,
               userId: user.id,
               createdAt: new Date(),
             });
 
-          await tx
-            .update(posts)
-            .set({ 
-              likesCount: (post.likesCount || 0) + 1,
+          const [updatedPost] = await tx.update(posts)
+            .set({
+              likesCount: post.likesCount + 1,
               updatedAt: new Date()
             })
-            .where(eq(posts.id, postId));
+            .where(eq(posts.id, postId))
+            .returning();
+
+          console.log(`Updated post ${postId} likes count to ${updatedPost.likesCount}`);
+          return { liked: true, likesCount: updatedPost.likesCount };
         }
       });
 
-      // After transaction, get the updated post data
-      const updatedPost = await db.query.posts.findFirst({
-        where: eq(posts.id, postId),
-        with: {
-          likes: true,
-        },
-      });
-
-      if (!updatedPost) {
-        throw new Error("Failed to fetch updated post");
-      }
-
-      res.json({
-        liked: updatedPost.likes.some(like => like.userId === user.id),
-        likesCount: updatedPost.likesCount,
-      });
+      console.log(`Successfully processed like/unlike for post ${postId}:`, result);
+      res.json(result);
     } catch (error: any) {
       console.error("Error liking/unliking post:", error);
-      res.status(500).json({ 
-        error: "Failed to like/unlike post",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
+      if (error.message === "Post not found") {
+        res.status(404).json({ error: "Post not found" });
+      } else {
+        res.status(500).json({ 
+          error: "Failed to update like status",
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+      }
     }
   });
 }
