@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
@@ -23,7 +24,7 @@ type Lesson = {
   title: string;
   description: string;
   difficulty: string;
-  sections?: LessonSection[]; // sections is now optional
+  sections: LessonSection[];
   lastUpdated: Date;
   totalXP: number;
 };
@@ -79,9 +80,9 @@ export default function LessonPage() {
   };
 
   const nextSection = () => {
-    if (lesson?.sections && currentSectionIndex < lesson.sections.length - 1) {
+    if (currentSectionIndex < (lesson?.sections.length || 0) - 1) {
       setCurrentSectionIndex(prev => prev + 1);
-    } else if (lesson?.sections && lesson.sections.length > 0){
+    } else {
       completeMutation.mutate();
     }
   };
@@ -132,63 +133,59 @@ export default function LessonPage() {
                       <DialogTitle>{lesson.title}</DialogTitle>
                     </DialogHeader>
                     <div className="mt-4">
-                      {lesson.sections && lesson.sections.length > 0 ? (
-                        <>
-                          <div className="flex items-center gap-2 mb-6">
-                            {lesson.sections.map((_, index) => (
-                              <div
-                                key={index}
-                                className={`h-2 flex-1 rounded-full ${
-                                  index <= currentSectionIndex ? 'bg-primary' : 'bg-secondary'
-                                }`}
-                              />
-                            ))}
-                          </div>
+                      <div className="flex items-center gap-2 mb-6">
+                        {lesson.sections.map((_, index) => (
+                          <div
+                            key={index}
+                            className={`h-2 flex-1 rounded-full ${
+                              index <= currentSectionIndex ? 'bg-primary' : 'bg-secondary'
+                            }`}
+                          />
+                        ))}
+                      </div>
 
-                          <div className="space-y-6">
-                            <h3 className="text-xl font-semibold">
-                              {lesson.sections[currentSectionIndex].title}
-                            </h3>
-                            <div className="prose dark:prose-invert">
-                              {lesson.sections[currentSectionIndex].content}
-                            </div>
-                            <div className="flex items-center justify-between pt-4 border-t">
-                              <Badge variant="outline">
-                                +{lesson.sections[currentSectionIndex].xpReward} XP
-                              </Badge>
-                              <div className="flex gap-4">
-                                <button
-                                  onClick={previousSection}
-                                  disabled={currentSectionIndex === 0}
-                                  className="px-4 py-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50"
-                                >
-                                  Previous
-                                </button>
-                                <button
-                                  onClick={nextSection}
-                                  className="px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-                                >
-                                  {currentSectionIndex === lesson.sections.length - 1 ? 'Complete' : 'Next'}
-                                </button>
-                              </div>
-                            </div>
+                      <div className="space-y-6">
+                        <h3 className="text-xl font-semibold">
+                          {lesson.sections[currentSectionIndex].title}
+                        </h3>
+                        <div className="prose dark:prose-invert">
+                          {lesson.sections[currentSectionIndex].content}
+                        </div>
+                        <div className="flex items-center justify-between pt-4 border-t">
+                          <Badge variant="outline">
+                            +{lesson.sections[currentSectionIndex].xpReward} XP
+                          </Badge>
+                          <div className="flex gap-4">
+                            <button
+                              onClick={previousSection}
+                              disabled={currentSectionIndex === 0}
+                              className="px-4 py-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50"
+                            >
+                              Previous
+                            </button>
+                            <button
+                              onClick={nextSection}
+                              className="px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+                            >
+                              {currentSectionIndex === lesson.sections.length - 1 ? 'Complete' : 'Next'}
+                            </button>
                           </div>
-                        </>
-                      ) : (
-                        <p>This lesson has no sections.</p>
-                      )}
+                        </div>
+                      </div>
                     </div>
                   </DialogContent>
                 </Dialog>
               </div>
             </div>
 
-            {lesson.sections && lesson.sections.map((section, index) => (
-              <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-secondary/10">
-                <span className="text-sm">{section.title}</span>
-                <Badge variant="outline">+{section.xpReward} XP</Badge>
-              </div>
-            ))}
+            <div className="mt-6 space-y-3">
+              {lesson.sections.map((section, index) => (
+                <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-secondary/10">
+                  <span className="text-sm">{section.title}</span>
+                  <Badge variant="outline">+{section.xpReward} XP</Badge>
+                </div>
+              ))}
+            </div>
           </div>
         </Card>
       </div>
