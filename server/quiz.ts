@@ -82,6 +82,10 @@ export function setupQuizRoutes(app: Express): void {
       const user = req.user as SelectUser;
       const sectionId = req.query.sectionId ? parseInt(req.query.sectionId as string) : undefined;
 
+      if (!sectionId) {
+        return res.status(400).json({ error: "Section ID is required" });
+      }
+
       const questions = await db
         .select({
           id: quizQuestions.id,
@@ -94,7 +98,7 @@ export function setupQuizRoutes(app: Express): void {
           xpReward: quizQuestions.xpReward,
         })
         .from(quizQuestions)
-        .where(sectionId ? eq(quizQuestions.sectionId, sectionId) : undefined);
+        .where(eq(quizQuestions.sectionId, sectionId));
 
       res.json(questions);
     } catch (error: unknown) {
