@@ -1,5 +1,4 @@
 import { pgTable, text, serial, integer, decimal, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
 // Base tables
@@ -107,20 +106,20 @@ export const repostsRelations = relations(reposts, ({ one }) => ({
 }));
 
 // Schema validation
-export const insertUserSchema = createInsertSchema(users);
-export const selectUserSchema = createSelectSchema(users);
-export const insertPostSchema = createInsertSchema(posts);
-export const selectPostSchema = createSelectSchema(posts);
-export const insertPostLikeSchema = createInsertSchema(postLikes);
-export const selectPostLikeSchema = createSelectSchema(postLikes);
+//export const insertUserSchema = createInsertSchema(users);
+//export const selectUserSchema = createSelectSchema(users);
+//export const insertPostSchema = createInsertSchema(posts);
+//export const selectPostSchema = createSelectSchema(posts);
+//export const insertPostLikeSchema = createInsertSchema(postLikes);
+//export const selectPostLikeSchema = createSelectSchema(postLikes);
 
 // Types
-export type InsertUser = typeof users.$inferInsert;
-export type SelectUser = typeof users.$inferSelect;
-export type InsertPost = typeof posts.$inferInsert;
-export type SelectPost = typeof posts.$inferSelect;
-export type InsertPostLike = typeof postLikes.$inferInsert;
-export type SelectPostLike = typeof postLikes.$inferSelect;
+//export type InsertUser = typeof users.$inferInsert;
+//export type SelectUser = typeof users.$inferSelect;
+//export type InsertPost = typeof posts.$inferInsert;
+//export type SelectPost = typeof posts.$inferSelect;
+//export type InsertPostLike = typeof postLikes.$inferInsert;
+//export type SelectPostLike = typeof postLikes.$inferSelect;
 
 // Other tables
 export const portfolios = pgTable("portfolios", {
@@ -229,9 +228,9 @@ export const flashcardProgress = pgTable("flashcard_progress", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
   flashcardId: integer("flashcard_id").references(() => flashcards.id),
-  easeFactor: decimal("ease_factor", { precision: 4, scale: 2 }).default("2.5").notNull(),
-  interval: integer("interval").default(0).notNull(),
-  consecutiveCorrect: integer("consecutive_correct").default(0).notNull(),
+  easeFactor: decimal("ease_factor", { precision: 4, scale: 2 }).notNull().default("2.5"),
+  interval: integer("interval").notNull().default(0),
+  consecutiveCorrect: integer("consecutive_correct").notNull().default(0),
   lastReviewedAt: timestamp("last_reviewed_at").defaultNow(),
   nextReviewAt: timestamp("next_review_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),

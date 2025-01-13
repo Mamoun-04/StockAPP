@@ -15,7 +15,7 @@ async function scrapeFinancialData(symbol: string) {
       axios.get(`https://www.marketwatch.com/investing/stock/${symbol}`)
     ]).catch(() => [null, null, null]);
 
-    const data = {
+    const data: any = {
       marketMetrics: {},
       newsHeadlines: [],
       technicalIndicators: [],
@@ -43,7 +43,8 @@ async function scrapeFinancialData(symbol: string) {
     if (seekingAlphaData) {
       const $ = cheerio.load(seekingAlphaData.data);
       $('.analyst-rating-summary').each((_, el) => {
-        data.analystOpinions.push($(el).text().trim());
+        const opinion = $(el).text().trim();
+        if (opinion) data.analystOpinions.push(opinion);
       });
     }
 
@@ -51,7 +52,8 @@ async function scrapeFinancialData(symbol: string) {
     if (marketWatchData) {
       const $ = cheerio.load(marketWatchData.data);
       $('.technical-indicator').each((_, el) => {
-        data.technicalIndicators.push($(el).text().trim());
+        const indicator = $(el).text().trim();
+        if (indicator) data.technicalIndicators.push(indicator);
       });
     }
 
@@ -63,6 +65,52 @@ async function scrapeFinancialData(symbol: string) {
 }
 
 export function setupOpenAIRoutes(app: Express) {
+  // Generate lesson content
+  app.post("/api/ai/lesson", async (req, res) => {
+    try {
+      const { topic, difficulty } = req.body;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert financial educator. Create educational content about ${topic} suitable for ${difficulty} level students. 
+            The content should be structured as a series of flashcards, each with a question and answer.
+            Format your response as a JSON object with this structure:
+            {
+              "title": "Lesson title",
+              "description": "Brief overview of the lesson",
+              "flashcards": [
+                {
+                  "question": "Question text with a ___ to fill in",
+                  "answer": "Complete answer including the fill-in word",
+                  "difficulty": "beginner|intermediate|advanced"
+                }
+              ]
+            }`
+          },
+          {
+            role: "user",
+            content: `Create a lesson about ${topic} for ${difficulty} level students`,
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const content = response.choices[0].message.content;
+      if (!content) {
+        throw new Error("No content in response");
+      }
+
+      res.json(JSON.parse(content));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
+  // Keep existing routes
   app.post("/api/ai/chat", async (req, res) => {
     try {
       const { message, history } = req.body;
