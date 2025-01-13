@@ -18,6 +18,89 @@ export const users = pgTable("users", {
   level: integer("level").default(1).notNull(),
 });
 
+export const posts = pgTable("posts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  type: text("type").notNull(),
+  stockSymbol: text("stock_symbol"),
+  tradeType: text("trade_type"),
+  shares: decimal("shares"),
+  price: decimal("price"),
+  profitLoss: decimal("profit_loss"),
+  likesCount: integer("likes_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const postLikes = pgTable("post_likes", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").references(() => posts.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const comments = pgTable("comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").references(() => posts.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const usersRelations = relations(users, ({ many }) => ({
+  posts: many(posts),
+  comments: many(comments),
+  likes: many(postLikes),
+}));
+
+export const postsRelations = relations(posts, ({ one, many }) => ({
+  author: one(users, {
+    fields: [posts.userId],
+    references: [users.id],
+  }),
+  comments: many(comments),
+  likes: many(postLikes),
+}));
+
+export const commentsRelations = relations(comments, ({ one }) => ({
+  post: one(posts, {
+    fields: [comments.postId],
+    references: [posts.id],
+  }),
+  author: one(users, {
+    fields: [comments.userId],
+    references: [users.id],
+  }),
+}));
+
+export const postLikesRelations = relations(postLikes, ({ one }) => ({
+  post: one(posts, {
+    fields: [postLikes.postId],
+    references: [posts.id],
+  }),
+  user: one(users, {
+    fields: [postLikes.userId],
+    references: [users.id],
+  }),
+}));
+
+
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);
+export const insertPostSchema = createInsertSchema(posts);
+export const selectPostSchema = createSelectSchema(posts);
+export const insertPostLikeSchema = createInsertSchema(postLikes);
+export const selectPostLikeSchema = createSelectSchema(postLikes);
+
+export type InsertUser = typeof users.$inferInsert;
+export type SelectUser = typeof users.$inferSelect;
+export type InsertPost = typeof posts.$inferInsert;
+export type SelectPost = typeof posts.$inferSelect;
+export type InsertPostLike = typeof postLikes.$inferInsert;
+export type SelectPostLike = typeof postLikes.$inferSelect;
+
 export const portfolios = pgTable("portfolios", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -110,27 +193,6 @@ export const userQuizAttempts = pgTable("user_quiz_attempts", {
   attemptedAt: timestamp("attempted_at").defaultNow(),
 });
 
-export const posts = pgTable("posts", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  content: text("content").notNull(),
-  type: text("type").notNull(),
-  stockSymbol: text("stock_symbol"),
-  tradeType: text("trade_type"),
-  shares: decimal("shares"),
-  price: decimal("price"),
-  profitLoss: decimal("profit_loss"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const postLikes = pgTable("post_likes", {
-  id: serial("id").primaryKey(),
-  postId: integer("post_id").references(() => posts.id).notNull(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
 export const reposts = pgTable("reposts", {
   id: serial("id").primaryKey(),
   originalPostId: integer("original_post_id").references(() => posts.id).notNull(),
@@ -139,31 +201,6 @@ export const reposts = pgTable("reposts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const comments = pgTable("comments", {
-  id: serial("id").primaryKey(),
-  postId: integer("post_id").references(() => posts.id).notNull(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const usersRelations = relations(users, ({ many }) => ({
-  posts: many(posts),
-  comments: many(comments),
-  likes: many(postLikes),
-}));
-
-export const postsRelations = relations(posts, ({ one, many }) => ({
-  author: one(users, {
-    fields: [posts.userId],
-    references: [users.id],
-  }),
-  comments: many(comments),
-  likes: many(postLikes),
-  reposts: many(reposts, { relationName: "originalPost" }),
-}));
-
 export const commentsRelations = relations(comments, ({ one }) => ({
   post: one(posts, {
     fields: [comments.postId],
@@ -171,17 +208,6 @@ export const commentsRelations = relations(comments, ({ one }) => ({
   }),
   author: one(users, {
     fields: [comments.userId],
-    references: [users.id],
-  }),
-}));
-
-export const postLikesRelations = relations(postLikes, ({ one }) => ({
-  post: one(posts, {
-    fields: [postLikes.postId],
-    references: [posts.id],
-  }),
-  user: one(users, {
-    fields: [postLikes.userId],
     references: [users.id],
   }),
 }));
@@ -196,31 +222,3 @@ export const repostsRelations = relations(reposts, ({ one }) => ({
     references: [users.id],
   }),
 }));
-
-export const insertUserSchema = createInsertSchema(users);
-export const selectUserSchema = createSelectSchema(users);
-export const insertPostSchema = createInsertSchema(posts);
-export const selectPostSchema = createSelectSchema(posts);
-export const insertCommentSchema = createInsertSchema(comments);
-export const selectCommentSchema = createSelectSchema(comments);
-export const insertPostLikeSchema = createInsertSchema(postLikes);
-export const selectPostLikeSchema = createSelectSchema(postLikes);
-
-export type InsertUser = typeof users.$inferInsert;
-export type SelectUser = typeof users.$inferSelect;
-export type Portfolio = typeof portfolios.$inferSelect;
-export type Watchlist = typeof watchlists.$inferSelect;
-export type Lesson = typeof lessons.$inferSelect;
-export type UserProgress = typeof userProgress.$inferSelect;
-export type Achievement = typeof achievements.$inferSelect;
-export type UserAchievement = typeof userAchievements.$inferSelect;
-export type QuizQuestion = typeof quizQuestions.$inferSelect;
-export type UserQuizAttempt = typeof userQuizAttempts.$inferSelect;
-export type QuizSection = typeof quizSections.$inferSelect;
-export type UserQuizProgress = typeof userQuizProgress.$inferSelect;
-export type InsertPost = typeof posts.$inferInsert;
-export type SelectPost = typeof posts.$inferSelect;
-export type InsertComment = typeof comments.$inferInsert;
-export type SelectComment = typeof comments.$inferSelect;
-export type InsertPostLike = typeof postLikes.$inferInsert;
-export type SelectPostLike = typeof postLikes.$inferSelect;
