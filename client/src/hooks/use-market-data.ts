@@ -37,13 +37,16 @@ export function useMarketData(symbol?: string) {
   const { toast } = useToast();
 
   const quote = useQuery({
-    queryKey: [`/api/market/quotes/${symbol}`, symbol],
+    queryKey: symbol ? [`/api/market/quotes/${symbol}`] : [],
     queryFn: async () => {
       if (!symbol) return null;
       const res = await fetch(`/api/market/quotes/${symbol}`, {
         credentials: 'include'
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
       return res.json() as Promise<Quote>;
     },
     enabled: !!symbol,
@@ -56,7 +59,10 @@ export function useMarketData(symbol?: string) {
       const res = await fetch('/api/positions', {
         credentials: 'include'
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
       return res.json() as Promise<Position[]>;
     },
     refetchInterval: 15000 // Refresh every 15 seconds
@@ -68,7 +74,10 @@ export function useMarketData(symbol?: string) {
       const res = await fetch('/api/account', {
         credentials: 'include'
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
       return res.json() as Promise<Account>;
     },
     refetchInterval: 15000 // Refresh every 15 seconds
@@ -84,8 +93,8 @@ export function useMarketData(symbol?: string) {
       });
 
       if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText);
+        const error = await res.text();
+        throw new Error(error);
       }
 
       return res.json();
@@ -102,7 +111,7 @@ export function useMarketData(symbol?: string) {
       positions.refetch();
       account.refetch();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         variant: "destructive",
         title: "Trade Failed",

@@ -49,7 +49,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Add error handling middleware last
     app.use((err: any, req: any, res: any, next: any) => {
       console.error('Error:', err);
-      // Ensure we always send JSON responses, even for errors
+
+      // Handle Zod validation errors
+      if (err.name === 'ZodError') {
+        return res.status(400).json({
+          error: err.errors.map((e: any) => e.message).join(', ')
+        });
+      }
+
+      // Handle database errors
+      if (err.code && err.code.startsWith('42')) { // PostgreSQL error codes
+        return res.status(400).json({
+          error: 'Database error',
+          details: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
+      }
+
+      // Handle authentication errors
+      if (err.name === 'AuthenticationError') {
+        return res.status(401).json({
+          error: err.message || 'Authentication failed'
+        });
+      }
+
+      // Default error response
       res.status(err.status || 500).json({ 
         error: err.message || "Internal Server Error",
         details: process.env.NODE_ENV === 'development' ? err.stack : undefined

@@ -1,6 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useState, useEffect } from "react";
-import { useAIChat } from "@/hooks/use-ai-chat";
 import { Loader2, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -10,25 +9,54 @@ type SentimentPanelProps = {
   className?: string;
 };
 
+type MarketAnalysis = {
+  sentiment: 'bullish' | 'bearish' | 'neutral';
+  confidence: number;
+  recommendation: 'strong buy' | 'buy' | 'hold' | 'sell' | 'strong sell';
+  keyFactors: string[];
+};
+
+// Dummy data generator based on symbol
+const getDummyAnalysis = (symbol: string): MarketAnalysis => {
+  // Use symbol to generate consistent but seemingly random data
+  const hash = symbol.split('').reduce((acc, char) => char.charCodeAt(0) + acc, 0);
+
+  const sentiments = ['bullish', 'bearish', 'neutral'] as const;
+  const recommendations = ['strong buy', 'buy', 'hold', 'sell', 'strong sell'] as const;
+
+  return {
+    sentiment: sentiments[hash % 3],
+    confidence: 5 + (hash % 6), // Score between 5-10
+    recommendation: recommendations[hash % 5],
+    keyFactors: [
+      "Strong technical indicators showing potential momentum",
+      "Recent market volatility affecting sector performance",
+      "Positive analyst coverage and institutional interest",
+      "Upcoming earnings report could impact short-term price action"
+    ]
+  };
+};
+
 export default function SentimentPanel({ symbol, className }: SentimentPanelProps) {
-  const [analysis, setAnalysis] = useState<any>(null);
-  const [error, setError] = useState<Error | null>(null);
-  const { analyze, isAnalyzing } = useAIChat();
+  const [analysis, setAnalysis] = useState<MarketAnalysis | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAnalysis = async () => {
-      if (!symbol) return;
-      try {
-        const result = await analyze({ symbol });
-        setAnalysis(result);
-        setError(null);
-      } catch (error) {
-        console.error("Analysis error:", error);
-        setError(error as Error);
-      }
-    };
-    fetchAnalysis();
-  }, [symbol, analyze]);
+    if (!symbol) {
+      setLoading(false);
+      setAnalysis(null);
+      return;
+    }
+
+    setLoading(true);
+    // Simulate API delay
+    const timer = setTimeout(() => {
+      setAnalysis(getDummyAnalysis(symbol));
+      setLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [symbol]);
 
   const getRecommendationColor = (rec: string) => {
     switch (rec.toLowerCase()) {
@@ -40,15 +68,22 @@ export default function SentimentPanel({ symbol, className }: SentimentPanelProp
     }
   };
 
+  if (!symbol) {
+    return (
+      <Card className={cn("h-[250px]", className)}>
+        <CardContent className="h-full p-4">
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <p>Select a stock to view sentiment</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className={cn("h-[250px]", className)}>
       <CardContent className="h-full p-4">
-        {error ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <AlertTriangle className="h-8 w-8 mb-2" />
-            <p className="text-sm">Unable to load market sentiment</p>
-          </div>
-        ) : isAnalyzing ? (
+        {loading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
@@ -57,9 +92,9 @@ export default function SentimentPanel({ symbol, className }: SentimentPanelProp
             <div className="text-center mb-3">
               <h3 className="text-sm font-medium text-muted-foreground">Market Sentiment</h3>
               <div className="flex items-center justify-center gap-2 mt-1">
-                {analysis.sentiment?.includes('bullish') ? (
+                {analysis.sentiment.includes('bullish') ? (
                   <TrendingUp className="h-5 w-5 text-green-500" />
-                ) : analysis.sentiment?.includes('bearish') ? (
+                ) : analysis.sentiment.includes('bearish') ? (
                   <TrendingDown className="h-5 w-5 text-red-500" />
                 ) : (
                   <AlertTriangle className="h-5 w-5 text-yellow-500" />
@@ -99,7 +134,7 @@ export default function SentimentPanel({ symbol, className }: SentimentPanelProp
                 <div className="space-y-1">
                   <h3 className="text-sm font-medium text-muted-foreground">Key Factors</h3>
                   <ul className="text-sm">
-                    {analysis.keyFactors?.map((factor: string, index: number) => (
+                    {analysis.keyFactors.map((factor, index) => (
                       <li key={index} className="text-muted-foreground py-0.5">• {factor}</li>
                     ))}
                   </ul>

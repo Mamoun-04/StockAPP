@@ -3,115 +3,160 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 
+// Common stocks from stock-search.tsx
+const stocks = [
+  { 
+    symbol: "AAPL", 
+    name: "Apple Inc.", 
+    variations: ["apple", "apple inc", "apple computer", "iphone maker"],
+    sector: "Technology"
+  },
+  { 
+    symbol: "MSFT", 
+    name: "Microsoft Corporation", 
+    variations: ["microsoft", "msft", "windows maker", "microsoft corp"],
+    sector: "Technology"
+  },
+  { 
+    symbol: "GOOGL", 
+    name: "Alphabet Inc.", 
+    variations: ["google", "alphabet", "google inc", "alphabet inc"],
+    sector: "Technology"
+  },
+  { 
+    symbol: "AMZN", 
+    name: "Amazon.com Inc.", 
+    variations: ["amazon", "amazon.com", "amazon inc", "aws"],
+    sector: "Consumer Cyclical"
+  },
+  { 
+    symbol: "META", 
+    name: "Meta Platforms Inc.", 
+    variations: ["meta", "facebook", "instagram", "meta platforms", "fb"],
+    sector: "Technology"
+  },
+  { 
+    symbol: "TSLA", 
+    name: "Tesla Inc.", 
+    variations: ["tesla", "tesla motors", "tesla inc", "ev maker"],
+    sector: "Automotive"
+  },
+  { 
+    symbol: "NVDA", 
+    name: "NVIDIA Corporation", 
+    variations: ["nvidia", "nvidia corp", "nvda"],
+    sector: "Technology"
+  },
+  { 
+    symbol: "JPM", 
+    name: "JPMorgan Chase & Co.", 
+    variations: ["jpmorgan", "jp morgan", "chase", "jpm"],
+    sector: "Financial Services"
+  },
+  { 
+    symbol: "BAC", 
+    name: "Bank of America Corp.", 
+    variations: ["bank of america", "bofa", "bac", "bank of america corp"],
+    sector: "Financial Services"
+  },
+  { 
+    symbol: "WMT", 
+    name: "Walmart Inc.", 
+    variations: ["walmart", "wal-mart", "wmt", "walmart stores"],
+    sector: "Consumer Defensive"
+  },
+] as const;
+
 type StockSearchProps = {
   onSelect: (symbol: string) => void;
 };
 
+// Levenshtein distance calculation for fuzzy matching
+function levenshteinDistance(str1: string, str2: string): number {
+  const track = Array(str2.length + 1).fill(null).map(() =>
+    Array(str1.length + 1).fill(null));
+
+  for (let i = 0; i <= str1.length; i++) track[0][i] = i;
+  for (let j = 0; j <= str2.length; j++) track[j][0] = j;
+
+  for (let j = 1; j <= str2.length; j++) {
+    for (let i = 1; i <= str1.length; i++) {
+      const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      track[j][i] = Math.min(
+        track[j][i - 1] + 1,
+        track[j - 1][i] + 1,
+        track[j - 1][i - 1] + indicator
+      );
+    }
+  }
+
+  return track[str2.length][str1.length];
+}
+
+// Calculate similarity score between two strings
+function calculateSimilarity(str1: string, str2: string): number {
+  const maxLength = Math.max(str1.length, str2.length);
+  if (maxLength === 0) return 1.0; // Both strings are empty
+  const distance = levenshteinDistance(str1.toLowerCase(), str2.toLowerCase());
+  return 1 - distance / maxLength;
+}
+
 export default function StockSearch({ onSelect }: StockSearchProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [results, setResults] = useState<Array<{ symbol: string; name: string }>>([]);
+  const [results, setResults] = useState<Array<{ symbol: string; name: string; score: number }>>([]);
   const [showResults, setShowResults] = useState(false);
 
-  const handleSearch = async () => {
-    if (!searchTerm.trim()) return;
+  const handleSearch = () => {
+    if (!searchTerm.trim()) {
+      setResults([]);
+      setShowResults(false);
+      return;
+    }
 
-    try {
-      // Create variations of the search term
-      const searchVariations = generateSearchVariations(searchTerm);
-      let allResults: Array<{ symbol: string; name: string }> = [];
+    // Process results with fuzzy matching
+    const processedResults = stocks.map((stock) => {
+      // Calculate similarity scores for both symbol and name
+      const symbolScore = calculateSimilarity(searchTerm, stock.symbol);
+      const nameScore = calculateSimilarity(searchTerm, stock.name);
 
-      // Search with each variation
-      for (const variation of searchVariations) {
-        const response = await fetch(
-          `/api/stocks/search?q=${encodeURIComponent(variation)}`
-        );
-        const data = await response.json();
-        allResults = [...allResults, ...data];
-      }
+      // Additional scoring for variations
+      const variationScores = stock.variations.map(v => 
+        calculateSimilarity(searchTerm, v)
+      );
+      const bestVariationScore = Math.max(...variationScores);
 
-      // Remove duplicates
-      const uniqueResults = Array.from(
-        new Map(allResults.map(stock => [stock.symbol, stock])).values()
+      // Additional scoring factors
+      const startsWithBonus = (
+        stock.symbol.toLowerCase().startsWith(searchTerm.toLowerCase()) ? 0.3 :
+        stock.name.toLowerCase().startsWith(searchTerm.toLowerCase()) ? 0.2 : 0
       );
 
-      // Sort results by relevance
-      const sortedResults = uniqueResults.sort((a, b) => {
-        const aRelevance = getRelevanceScore(a, searchTerm);
-        const bRelevance = getRelevanceScore(b, searchTerm);
-        return bRelevance - aRelevance;
-      });
+      const exactMatchBonus = (
+        stock.symbol.toLowerCase() === searchTerm.toLowerCase() ? 0.5 :
+        stock.name.toLowerCase() === searchTerm.toLowerCase() ? 0.4 : 0
+      );
 
-      setResults(sortedResults);
-      setShowResults(true);
-    } catch (err) {
-      console.error('Search error:', err);
-      setResults([]);
-    }
-  };
+      // Weight the scores (symbol matches are considered more important)
+      const weightedScore = (
+        symbolScore * 0.4 + 
+        nameScore * 0.3 + 
+        bestVariationScore * 0.3
+      ) + startsWithBonus + exactMatchBonus;
 
-  const generateSearchVariations = (search: string): string[] => {
-    const variations = new Set<string>();
-    const searchLower = search.toLowerCase();
+      return {
+        ...stock,
+        score: weightedScore
+      };
+    });
 
-    // Add original search term
-    variations.add(search);
-    variations.add(searchLower);
-    variations.add(search.toUpperCase());
+    // Filter results with a minimum similarity threshold and sort by score
+    const filteredResults = processedResults
+      .filter((result) => result.score > 0.3)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10); // Limit to top 10 results
 
-    // Add first 4 characters for longer terms
-    if (search.length > 4) {
-      variations.add(search.substring(0, 4));
-    }
-
-    // Handle common company name variations
-    if (searchLower.endsWith('le')) {
-      variations.add(searchLower.slice(0, -2) + 'l');  // e.g., "apple" -> "appl"
-    }
-    if (searchLower.endsWith('le ')) {
-      variations.add(searchLower.slice(0, -3) + 'l');  // Handle trailing space
-    }
-    if (searchLower.endsWith('gle')) {
-      variations.add(searchLower.slice(0, -3) + 'gl');  // e.g., "google" -> "googl"
-    }
-    if (searchLower.endsWith('gle ')) {
-      variations.add(searchLower.slice(0, -4) + 'gl');  // Handle trailing space
-    }
-
-    return Array.from(variations);
-  };
-
-  const getRelevanceScore = (stock: { symbol: string; name: string }, search: string): number => {
-    const searchLower = search.toLowerCase();
-    const symbolLower = stock.symbol.toLowerCase();
-    const nameLower = stock.name.toLowerCase();
-
-    let score = 0;
-
-    // Exact matches get highest priority
-    if (symbolLower === searchLower) score += 100;
-    if (nameLower === searchLower) score += 90;
-
-    // Starts with search term
-    if (symbolLower.startsWith(searchLower)) score += 80;
-    if (nameLower.startsWith(searchLower)) score += 70;
-
-    // Contains search term
-    if (symbolLower.includes(searchLower)) score += 60;
-    if (nameLower.includes(searchLower)) score += 50;
-
-    // Word boundary matches
-    const searchWords = searchLower.split(/\s+/);
-    for (const word of searchWords) {
-      if (word.length < 2) continue;
-
-      const symbolWordMatch = new RegExp(`\\b${word}`, 'i').test(stock.symbol);
-      const nameWordMatch = new RegExp(`\\b${word}`, 'i').test(stock.name);
-
-      if (symbolWordMatch) score += 40;
-      if (nameWordMatch) score += 30;
-    }
-
-    return score;
+    setResults(filteredResults);
+    setShowResults(filteredResults.length > 0);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -139,10 +184,12 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
   };
 
   const handleSelect = (symbol: string) => {
-    onSelect(symbol);
-    setSearchTerm("");
-    setResults([]);
-    setShowResults(false);
+    if (onSelect) {
+      onSelect(symbol);
+      setSearchTerm("");
+      setResults([]);
+      setShowResults(false);
+    }
   };
 
   return (
@@ -169,7 +216,12 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
               className="w-full text-left px-4 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
               onClick={() => handleSelect(stock.symbol)}
             >
-              <div className="font-medium">{stock.symbol}</div>
+              <div className="font-medium">
+                {stock.symbol}
+                <span className="text-xs text-gray-500 ml-2">
+                  Match: {Math.round(stock.score * 100)}%
+                </span>
+              </div>
               <div className="text-sm text-gray-600">{stock.name}</div>
             </button>
           ))}

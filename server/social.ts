@@ -1,66 +1,50 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "@db";
-import { posts, comments, users, type SelectUser } from "@db/schema";
-import { eq, desc } from "drizzle-orm";
-import { z } from "zod";
+import { posts, postLikes, users, type SelectUser } from "@db/schema";
+import { eq, desc, and } from "drizzle-orm";
 
-// Add type for authenticated request
-interface AuthenticatedRequest extends Request {
-  user?: SelectUser;
-}
-
-// Middleware to check authentication
-const requireAuth = (req: AuthenticatedRequest, res: Response, next: Function) => {
-  if (!req.user?.id) {
-    console.log("Authentication failed - no user found in request");
+// Authentication middleware
+const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated()) {
     return res.status(401).json({ error: "You must be logged in to perform this action" });
   }
   next();
 };
 
-// Profile update validation schema
-const profileUpdateSchema = z.object({
-  displayName: z.string().min(2, "Display name must be at least 2 characters").optional(),
-  bio: z.string().optional(),
-  avatarUrl: z.string().url("Invalid avatar URL").optional(),
-  education: z.string().optional(),
-  occupation: z.string().optional(),
-});
-
 export function setupSocialRoutes(app: Express) {
-  // Get feed posts with author info and comments
-  app.get("/api/feed", requireAuth, async (req: AuthenticatedRequest, res) => {
+  // Get feed posts with author info and likes
+  app.get("/api/feed", requireAuth, async (req: Request, res: Response) => {
     try {
-      console.log("Fetching feed for user:", req.user?.id);
+      const user = req.user as SelectUser;
       const feedPosts = await db.query.posts.findMany({
         with: {
           author: true,
-          comments: {
-            with: {
-              author: true,
-            },
-            orderBy: desc(comments.createdAt),
-          },
+          likes: true,
         },
         orderBy: desc(posts.createdAt),
-        limit: 50, // Limit the number of posts to prevent overload
+        limit: 50,
       });
 
-      console.log("Found posts:", feedPosts.length);
-      res.json(feedPosts);
+      // Add user's like status to each post
+      const postsWithLikeStatus = feedPosts.map(post => ({
+        ...post,
+        isLiked: post.likes.some(like => like.userId === user.id),
+      }));
+
+      res.json(postsWithLikeStatus);
     } catch (error: any) {
       console.error("Error fetching feed:", error);
       res.status(500).json({ 
         error: "Failed to fetch feed",
-        details: error.message 
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   });
 
   // Create a new post
-  app.post("/api/posts", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/posts", requireAuth, async (req: Request, res: Response) => {
     try {
-      console.log("Creating new post for user:", req.user?.id);
+      const user = req.user as SelectUser;
       const { content, type, stockSymbol, tradeType, shares, price, profitLoss } = req.body;
 
       if (!content?.trim()) {
@@ -68,7 +52,7 @@ export function setupSocialRoutes(app: Express) {
       }
 
       const [newPost] = await db.insert(posts).values({
-        userId: req.user!.id,
+        userId: user.id,
         content,
         type: type || 'general',
         stockSymbol,
@@ -76,120 +60,113 @@ export function setupSocialRoutes(app: Express) {
         shares,
         price,
         profitLoss,
+        likesCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       }).returning();
 
-      console.log("Created post:", newPost.id);
-
       // Return the post with author information
-      const postWithAuthor = await db.query.posts.findFirst({
+      const postWithDetails = await db.query.posts.findFirst({
         where: eq(posts.id, newPost.id),
         with: {
           author: true,
-          comments: {
-            with: {
-              author: true,
-            },
-          },
+          likes: true,
         },
       });
 
-      res.json(postWithAuthor);
+      res.json(postWithDetails);
     } catch (error: any) {
       console.error("Error creating post:", error);
       res.status(500).json({ 
         error: "Failed to create post",
-        details: error.message 
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   });
 
-  // Add a comment to a post
-  app.post("/api/posts/:postId/comments", requireAuth, async (req: AuthenticatedRequest, res) => {
+  // Like/unlike a post
+  app.post("/api/posts/:postId/like", requireAuth, async (req: Request, res: Response) => {
     try {
-      console.log("Adding comment for user:", req.user?.id);
+      const user = req.user as SelectUser;
       const postId = parseInt(req.params.postId);
-      const { content } = req.body;
 
-      if (!content?.trim()) {
-        return res.status(400).json({ error: "Comment content is required" });
+      if (isNaN(postId)) {
+        return res.status(400).json({ error: "Invalid post ID" });
       }
 
-      // First verify the post exists
-      const post = await db.query.posts.findFirst({
-        where: eq(posts.id, postId),
+      console.log(`Processing like/unlike for post ${postId} by user ${user.id}`);
+
+      const result = await db.transaction(async (tx) => {
+        // Check if post exists
+        const post = await tx.query.posts.findFirst({
+          where: eq(posts.id, postId),
+          with: {
+            likes: true,
+          },
+        });
+
+        if (!post) {
+          console.log(`Post ${postId} not found`);
+          throw new Error("Post not found");
+        }
+
+        const hasLiked = post.likes.some(like => like.userId === user.id);
+        console.log(`User ${user.id} has ${hasLiked ? 'already' : 'not'} liked post ${postId}`);
+
+        if (hasLiked) {
+          // Unlike
+          console.log(`Removing like for post ${postId}`);
+          await tx.delete(postLikes)
+            .where(and(
+              eq(postLikes.postId, postId),
+              eq(postLikes.userId, user.id)
+            ));
+
+          const [updatedPost] = await tx.update(posts)
+            .set({
+              likesCount: Math.max(0, post.likesCount - 1),
+              updatedAt: new Date()
+            })
+            .where(eq(posts.id, postId))
+            .returning();
+
+          console.log(`Updated post ${postId} likes count to ${updatedPost.likesCount}`);
+          return { liked: false, likesCount: updatedPost.likesCount };
+        } else {
+          // Like
+          console.log(`Adding like for post ${postId}`);
+          await tx.insert(postLikes)
+            .values({
+              postId,
+              userId: user.id,
+              createdAt: new Date(),
+            });
+
+          const [updatedPost] = await tx.update(posts)
+            .set({
+              likesCount: post.likesCount + 1,
+              updatedAt: new Date()
+            })
+            .where(eq(posts.id, postId))
+            .returning();
+
+          console.log(`Updated post ${postId} likes count to ${updatedPost.likesCount}`);
+          return { liked: true, likesCount: updatedPost.likesCount };
+        }
       });
 
-      if (!post) {
-        return res.status(404).json({ error: "Post not found" });
-      }
-
-      const [newComment] = await db.insert(comments).values({
-        postId,
-        userId: req.user!.id,
-        content,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
-
-      console.log("Created comment:", newComment.id);
-
-      // Return the comment with author information
-      const commentWithAuthor = await db.query.comments.findFirst({
-        where: eq(comments.id, newComment.id),
-        with: {
-          author: true,
-        },
-      });
-
-      res.json(commentWithAuthor);
+      console.log(`Successfully processed like/unlike for post ${postId}:`, result);
+      res.json(result);
     } catch (error: any) {
-      console.error("Error creating comment:", error);
-      res.status(500).json({ 
-        error: "Failed to create comment",
-        details: error.message 
-      });
-    }
-  });
-
-  // Update user profile
-  app.put("/api/user/profile", requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      console.log("Updating profile for user:", req.user?.id);
-
-      // Validate the request body
-      const result = profileUpdateSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ 
-          error: "Invalid input",
-          details: result.error.issues.map(i => i.message)
+      console.error("Error liking/unliking post:", error);
+      if (error.message === "Post not found") {
+        res.status(404).json({ error: "Post not found" });
+      } else {
+        res.status(500).json({ 
+          error: "Failed to update like status",
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
       }
-
-      const updateData = result.data;
-
-      // Only include fields that are actually provided
-      const fieldsToUpdate: Partial<typeof updateData> = {};
-      if (updateData.displayName !== undefined) fieldsToUpdate.displayName = updateData.displayName;
-      if (updateData.bio !== undefined) fieldsToUpdate.bio = updateData.bio;
-      if (updateData.avatarUrl !== undefined) fieldsToUpdate.avatarUrl = updateData.avatarUrl;
-      if (updateData.education !== undefined) fieldsToUpdate.education = updateData.education;
-      if (updateData.occupation !== undefined) fieldsToUpdate.occupation = updateData.occupation;
-
-      const [updatedUser] = await db
-        .update(users)
-        .set(fieldsToUpdate)
-        .where(eq(users.id, req.user!.id))
-        .returning();
-
-      res.json(updatedUser);
-    } catch (error: any) {
-      console.error("Error updating profile:", error);
-      res.status(500).json({ 
-        error: "Failed to update profile",
-        details: error.message 
-      });
     }
   });
 }

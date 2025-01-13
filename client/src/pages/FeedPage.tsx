@@ -8,9 +8,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUser } from "@/hooks/use-user";
 import Header from "@/components/ui/header";
 import Footer from "@/components/ui/footer";
+import NavigationSidebar from "@/components/ui/navigation-sidebar";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Heart } from "lucide-react";
 
 type Post = {
   id: number;
@@ -22,6 +23,8 @@ type Post = {
   price?: number;
   profitLoss?: number;
   createdAt: string;
+  likesCount?: number;
+  isLiked?: boolean;
   author: {
     id: number;
     username: string;
@@ -124,6 +127,31 @@ export default function FeedPage() {
     },
   });
 
+  const likePostMutation = useMutation({
+    mutationFn: async (postId: number) => {
+      const response = await fetch(`/api/posts/${postId}/like`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/feed'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handlePost = () => {
     if (!newPost.trim()) return;
     createPostMutation.mutate(newPost);
@@ -133,6 +161,10 @@ export default function FeedPage() {
     const content = newComment[postId];
     if (!content?.trim()) return;
     addCommentMutation.mutate({ postId, content });
+  };
+
+  const handleLike = (postId: number) => {
+    likePostMutation.mutate(postId);
   };
 
   const getInitials = (author: { displayName?: string; username: string } | undefined) => {
@@ -173,139 +205,152 @@ export default function FeedPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-grow p-8">
-        <div className="max-w-3xl mx-auto space-y-6">
-          {/* New Post Form */}
-          <Card>
-            <CardContent className="pt-6">
-              <Textarea
-                placeholder="Share your trading insights..."
-                value={newPost}
-                onChange={(e) => setNewPost(e.target.value)}
-                className="min-h-[100px] mb-4"
-              />
-              <div className="flex justify-end">
-                <Button 
-                  onClick={handlePost}
-                  disabled={createPostMutation.isPending}
-                >
-                  {createPostMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : null}
-                  Post
-                </Button>
+      <div className="flex flex-1">
+        <NavigationSidebar />
+        <main className="flex-grow p-8">
+          <div className="max-w-3xl mx-auto space-y-6">
+            <Card>
+              <CardContent className="pt-6">
+                <Textarea
+                  placeholder="Share your trading insights..."
+                  value={newPost}
+                  onChange={(e) => setNewPost(e.target.value)}
+                  className="resize-none h-[120px] mb-4 focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handlePost}
+                    disabled={createPostMutation.isPending}
+                  >
+                    {createPostMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    Post
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {isLoading ? (
+              <div className="text-center py-4">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                <p className="text-sm text-muted-foreground mt-2">Loading posts...</p>
               </div>
-            </CardContent>
-          </Card>
+            ) : (
+              <div className="space-y-4">
+                {posts.map((post) => (
+                  <Card key={post.id}>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center space-x-4 mb-4">
+                        <Avatar>
+                          {post.author?.avatarUrl && (
+                            <AvatarImage
+                              src={post.author.avatarUrl}
+                              alt={renderAuthorName(post.author)}
+                            />
+                          )}
+                          <AvatarFallback>
+                            {post.author ? getInitials(post.author) : '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-semibold">
+                            {renderAuthorName(post.author)}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                          </div>
+                        </div>
+                      </div>
 
-          {/* Posts Feed */}
-          {isLoading ? (
-            <div className="text-center py-4">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-              <p className="text-sm text-muted-foreground mt-2">Loading posts...</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {posts.map((post) => (
-                <Card key={post.id}>
-                  <CardContent className="pt-6">
-                    {/* Post Header */}
-                    <div className="flex items-center space-x-4 mb-4">
-                      <Avatar>
-                        {post.author?.avatarUrl && (
-                          <AvatarImage 
-                            src={post.author.avatarUrl} 
-                            alt={renderAuthorName(post.author)}
-                          />
-                        )}
-                        <AvatarFallback>
-                          {post.author ? getInitials(post.author) : '?'}
-                        </AvatarFallback>
-                      </Avatar>
                       <div>
-                        <div className="font-semibold">
-                          {renderAuthorName(post.author)}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
-                        </div>
+                        <p className="text-sm">{post.content}</p>
+                        {renderTradeInfo(post)}
                       </div>
-                    </div>
 
-                    {/* Post Content */}
-                    <div>
-                      <p className="text-sm">{post.content}</p>
-                      {renderTradeInfo(post)}
-                    </div>
-
-                    {/* Comments Section */}
-                    <div className="mt-4">
-                      <div className="text-sm font-medium text-muted-foreground mb-2">
-                        {post.comments?.length || 0} comments
-                      </div>
-                      <ScrollArea className="h-[200px]">
-                        <div className="space-y-4">
-                          {post.comments?.map((comment) => (
-                            <div key={comment.id} className="flex space-x-3">
-                              <Avatar className="h-6 w-6">
-                                {comment.author?.avatarUrl && (
-                                  <AvatarImage 
-                                    src={comment.author.avatarUrl} 
-                                    alt={renderAuthorName(comment.author)}
-                                  />
-                                )}
-                                <AvatarFallback>
-                                  {comment.author ? getInitials(comment.author) : '?'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <div className="text-sm font-medium">
-                                  {renderAuthorName(comment.author)}
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  {comment.content}
-                                </p>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
-
-                      {/* Add Comment */}
-                      <div className="mt-4 flex gap-2">
-                        <Textarea
-                          placeholder="Write a comment..."
-                          value={newComment[post.id] || ''}
-                          onChange={(e) => setNewComment({
-                            ...newComment,
-                            [post.id]: e.target.value
-                          })}
-                          className="min-h-[60px]"
-                        />
+                      <div className="flex items-center space-x-4 mt-4 mb-4">
                         <Button
+                          variant="ghost"
                           size="sm"
-                          className="self-end"
-                          disabled={addCommentMutation.isPending}
-                          onClick={() => handleComment(post.id)}
+                          onClick={() => handleLike(post.id)}
+                          className={post.isLiked ? "text-red-500" : ""}
                         >
-                          {addCommentMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : 'Comment'}
+                          <Heart className={`h-4 w-4 mr-2 ${post.isLiked ? "fill-current" : ""}`} />
+                          {post.likesCount || 0}
                         </Button>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
+
+                      <div className="mt-4">
+                        <div className="text-sm font-medium text-muted-foreground mb-2">
+                          {post.comments?.length || 0} comments
+                        </div>
+                        <ScrollArea className="h-[200px]">
+                          <div className="space-y-4">
+                            {post.comments?.map((comment) => (
+                              <div key={comment.id} className="flex space-x-3">
+                                <Avatar className="h-6 w-6">
+                                  {comment.author?.avatarUrl && (
+                                    <AvatarImage
+                                      src={comment.author.avatarUrl}
+                                      alt={renderAuthorName(comment.author)}
+                                    />
+                                  )}
+                                  <AvatarFallback>
+                                    {comment.author ? getInitials(comment.author) : '?'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="text-sm font-medium">
+                                    {renderAuthorName(comment.author)}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    {comment.content}
+                                  </p>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+
+                        <div className="mt-4 flex gap-2">
+                          <Textarea
+                            placeholder="Write a comment..."
+                            value={newComment[post.id] || ''}
+                            onChange={(e) => {
+                              e.target.style.height = '40px';
+                              e.target.style.height = `${Math.min(e.target.scrollHeight, 100)}px`;
+                              setNewComment({
+                                ...newComment,
+                                [post.id]: e.target.value
+                              });
+                            }}
+                            className="flex-1 min-h-[40px] max-h-[40px] py-2 resize-none overflow-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                          />
+                          <Button
+                            size="sm"
+                            className="self-end h-[40px]"
+                            disabled={addCommentMutation.isPending}
+                            onClick={() => handleComment(post.id)}
+                          >
+                            {addCommentMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : 'Comment'}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
       <Footer />
     </div>
   );

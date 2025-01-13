@@ -6,8 +6,11 @@ import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/DashboardPage";
 import TradingTermsPage from "./pages/TradingTermsPage";
 import LearningPage from "./pages/LearningPage";
+import QuizzesPage from "./pages/QuizzesPage";
+import LessonsPage from "./pages/LessonsPage";
 import FeedPage from "./pages/FeedPage";
 import ProfilePage from "./pages/ProfilePage";
+import FloatingChat from "@/components/ui/floating-chat";
 
 function App() {
   const { user, isLoading } = useUser();
@@ -25,14 +28,19 @@ function App() {
   }
 
   return (
-    <Switch>
-      <Route path="/" component={DashboardPage} />
-      <Route path="/learn" component={LearningPage} />
-      <Route path="/feed" component={FeedPage} />
-      <Route path="/terms" component={TradingTermsPage} />
-      <Route path="/profile" component={ProfilePage} />
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      <Switch>
+        <Route path="/" component={DashboardPage} />
+        <Route path="/learn" component={LearningPage} />
+        <Route path="/learn/quizzes" component={QuizzesPage} />
+        <Route path="/learn/lessons" component={LessonsPage} />
+        <Route path="/feed" component={FeedPage} />
+        <Route path="/terms" component={TradingTermsPage} />
+        <Route path="/profile" component={ProfilePage} />
+        <Route component={NotFound} />
+      </Switch>
+      <FloatingChat />
+    </>
   );
 }
 

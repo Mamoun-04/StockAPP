@@ -46,8 +46,15 @@ const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunctio
   res.status(status).json({ message });
 };
 
+import { migrate } from "../db/migrations";
+
 (async () => {
   try {
+    // Run database migrations
+    console.log("Running database migrations...");
+    await migrate();
+    console.log("Database migrations completed");
+
     // Register routes and get server instance
     const server = await registerRoutes(app);
 

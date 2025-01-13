@@ -4,14 +4,32 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
+import { useUser } from "@/hooks/use-user";
 
 export default function Portfolio() {
+  const { user } = useUser();
   const { positions, account, isLoading, error } = useMarketData();
+
+  // Show login prompt if user is not authenticated
+  if (!user) {
+    return (
+      <div className="space-y-4 text-center py-4">
+        <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto" />
+        <div className="space-y-2">
+          <h3 className="font-semibold">Authentication Required</h3>
+          <p className="text-sm text-muted-foreground">
+            Please log in to view your portfolio.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return <Skeleton className="w-full h-[300px]" />;
   }
 
+  // Show specific error for Alpaca API credentials
   if (error?.message?.includes("Alpaca API credentials")) {
     return (
       <div className="space-y-4 text-center py-4">
@@ -26,8 +44,33 @@ export default function Portfolio() {
     );
   }
 
+  // Show generic error message for other errors
+  if (error) {
+    return (
+      <div className="space-y-4 text-center py-4">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
+        <div className="space-y-2">
+          <h3 className="font-semibold">Error Loading Portfolio</h3>
+          <p className="text-sm text-muted-foreground">
+            {error.message || "Failed to load portfolio data"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!positions || !account) {
-    return null;
+    return (
+      <div className="space-y-4 text-center py-4">
+        <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto" />
+        <div className="space-y-2">
+          <h3 className="font-semibold">No Data Available</h3>
+          <p className="text-sm text-muted-foreground">
+            Unable to retrieve portfolio data at this time.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
