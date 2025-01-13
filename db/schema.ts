@@ -2,6 +2,7 @@ import { pgTable, text, serial, integer, decimal, timestamp, boolean, jsonb } fr
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
+// Base tables
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").unique().notNull(),
@@ -40,18 +41,9 @@ export const postLikes = pgTable("post_likes", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const comments = pgTable("comments", {
-  id: serial("id").primaryKey(),
-  postId: integer("post_id").references(() => posts.id).notNull(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
+// Relations
 export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
-  comments: many(comments),
   likes: many(postLikes),
 }));
 
@@ -60,19 +52,7 @@ export const postsRelations = relations(posts, ({ one, many }) => ({
     fields: [posts.userId],
     references: [users.id],
   }),
-  comments: many(comments),
   likes: many(postLikes),
-}));
-
-export const commentsRelations = relations(comments, ({ one }) => ({
-  post: one(posts, {
-    fields: [comments.postId],
-    references: [posts.id],
-  }),
-  author: one(users, {
-    fields: [comments.userId],
-    references: [users.id],
-  }),
 }));
 
 export const postLikesRelations = relations(postLikes, ({ one }) => ({
@@ -87,6 +67,46 @@ export const postLikesRelations = relations(postLikes, ({ one }) => ({
 }));
 
 
+export const comments = pgTable("comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").references(() => posts.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const commentsRelations = relations(comments, ({ one }) => ({
+  post: one(posts, {
+    fields: [comments.postId],
+    references: [posts.id],
+  }),
+  author: one(users, {
+    fields: [comments.userId],
+    references: [users.id],
+  }),
+}));
+
+export const reposts = pgTable("reposts", {
+  id: serial("id").primaryKey(),
+  originalPostId: integer("original_post_id").references(() => posts.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  content: text("content"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const repostsRelations = relations(reposts, ({ one }) => ({
+  originalPost: one(posts, {
+    fields: [reposts.originalPostId],
+    references: [posts.id],
+  }),
+  user: one(users, {
+    fields: [reposts.userId],
+    references: [users.id],
+  }),
+}));
+
+// Schema validation
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 export const insertPostSchema = createInsertSchema(posts);
@@ -94,6 +114,7 @@ export const selectPostSchema = createSelectSchema(posts);
 export const insertPostLikeSchema = createInsertSchema(postLikes);
 export const selectPostLikeSchema = createSelectSchema(postLikes);
 
+// Types
 export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
 export type InsertPost = typeof posts.$inferInsert;
@@ -101,6 +122,7 @@ export type SelectPost = typeof posts.$inferSelect;
 export type InsertPostLike = typeof postLikes.$inferInsert;
 export type SelectPostLike = typeof postLikes.$inferSelect;
 
+// Other tables
 export const portfolios = pgTable("portfolios", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -192,33 +214,3 @@ export const userQuizAttempts = pgTable("user_quiz_attempts", {
   correct: boolean("correct").notNull(),
   attemptedAt: timestamp("attempted_at").defaultNow(),
 });
-
-export const reposts = pgTable("reposts", {
-  id: serial("id").primaryKey(),
-  originalPostId: integer("original_post_id").references(() => posts.id).notNull(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  content: text("content"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const commentsRelations = relations(comments, ({ one }) => ({
-  post: one(posts, {
-    fields: [comments.postId],
-    references: [posts.id],
-  }),
-  author: one(users, {
-    fields: [comments.userId],
-    references: [users.id],
-  }),
-}));
-
-export const repostsRelations = relations(reposts, ({ one }) => ({
-  originalPost: one(posts, {
-    fields: [reposts.originalPostId],
-    references: [posts.id],
-  }),
-  user: one(users, {
-    fields: [reposts.userId],
-    references: [users.id],
-  }),
-}));

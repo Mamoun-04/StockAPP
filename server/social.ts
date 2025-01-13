@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "@db";
-import { posts, comments, users, postLikes, type SelectUser } from "@db/schema";
+import { posts, postLikes, users, type SelectUser } from "@db/schema";
 import { eq, desc, and } from "drizzle-orm";
 
 // Authentication middleware
@@ -19,30 +19,16 @@ export function setupSocialRoutes(app: Express) {
       const feedPosts = await db.query.posts.findMany({
         with: {
           author: true,
-          comments: {
-            with: {
-              author: true,
-            },
-            orderBy: desc(comments.createdAt),
-          },
+          likes: true,
         },
         orderBy: desc(posts.createdAt),
         limit: 50,
       });
 
       // Add user's like status to each post
-      const postsWithLikeStatus = await Promise.all(feedPosts.map(async (post) => {
-        const userLike = await db.query.postLikes.findFirst({
-          where: and(
-            eq(postLikes.postId, post.id),
-            eq(postLikes.userId, user.id)
-          ),
-        });
-
-        return {
-          ...post,
-          isLiked: !!userLike,
-        };
+      const postsWithLikeStatus = feedPosts.map(post => ({
+        ...post,
+        isLiked: post.likes.some(like => like.userId === user.id),
       }));
 
       res.json(postsWithLikeStatus);
@@ -65,7 +51,6 @@ export function setupSocialRoutes(app: Express) {
         return res.status(400).json({ error: "Content is required" });
       }
 
-      // Create the post
       const [newPost] = await db.insert(posts).values({
         userId: user.id,
         content,
@@ -75,17 +60,17 @@ export function setupSocialRoutes(app: Express) {
         shares,
         price,
         profitLoss,
+        likesCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
-        likesCount: 0 // Initialize likesCount here
       }).returning();
 
-
-      // Return the post with author information 
+      // Return the post with author information
       const postWithDetails = await db.query.posts.findFirst({
         where: eq(posts.id, newPost.id),
         with: {
           author: true,
+          likes: true,
         },
       });
 
@@ -109,67 +94,81 @@ export function setupSocialRoutes(app: Express) {
         return res.status(400).json({ error: "Invalid post ID" });
       }
 
-      // Check if post exists
-      const post = await db.query.posts.findFirst({
-        where: eq(posts.id, postId),
-      });
+      // Start a transaction to handle like/unlike atomically
+      await db.transaction(async (tx) => {
+        // Check if post exists and lock it for update
+        const [post] = await tx
+          .select()
+          .from(posts)
+          .where(eq(posts.id, postId))
+          .limit(1)
+          .forUpdate(); // Lock the row to prevent concurrent updates
 
-      if (!post) {
-        return res.status(404).json({ error: "Post not found" });
-      }
+        if (!post) {
+          throw new Error("Post not found");
+        }
 
-      // Check if user already liked the post
-      const existingLike = await db.query.postLikes.findFirst({
-        where: and(
-          eq(postLikes.postId, postId),
-          eq(postLikes.userId, user.id)
-        ),
-      });
-
-      if (existingLike) {
-        // Unlike the post
-        await db.delete(postLikes)
+        // Check if user already liked the post
+        const [existingLike] = await tx
+          .select()
+          .from(postLikes)
           .where(and(
             eq(postLikes.postId, postId),
             eq(postLikes.userId, user.id)
-          ));
+          ))
+          .limit(1);
 
-        // Decrement likes count
-        await db
-          .update(posts)
-          .set({ 
-            likesCount: Math.max(0, post.likesCount - 1),
-            updatedAt: new Date()
-          })
-          .where(eq(posts.id, postId));
+        if (existingLike) {
+          // Unlike: Remove like and decrement count
+          await tx
+            .delete(postLikes)
+            .where(and(
+              eq(postLikes.postId, postId),
+              eq(postLikes.userId, user.id)
+            ));
 
-      } else {
-        // Like the post
-        await db.insert(postLikes)
-          .values({
-            postId,
-            userId: user.id,
-            createdAt: new Date(),
-          });
+          await tx
+            .update(posts)
+            .set({ 
+              likesCount: post.likesCount > 0 ? post.likesCount - 1 : 0,
+              updatedAt: new Date()
+            })
+            .where(eq(posts.id, postId));
+        } else {
+          // Like: Add like and increment count
+          await tx
+            .insert(postLikes)
+            .values({
+              postId,
+              userId: user.id,
+              createdAt: new Date(),
+            });
 
-        // Increment likes count
-        await db
-          .update(posts)
-          .set({ 
-            likesCount: post.likesCount + 1,
-            updatedAt: new Date()
-          })
-          .where(eq(posts.id, postId));
-      }
-
-      // Get updated post
-      const updatedPost = await db.query.posts.findFirst({
-        where: eq(posts.id, postId),
+          await tx
+            .update(posts)
+            .set({ 
+              likesCount: (post.likesCount || 0) + 1,
+              updatedAt: new Date()
+            })
+            .where(eq(posts.id, postId));
+        }
       });
 
-      res.json({ 
-        liked: !existingLike,
-        likesCount: updatedPost?.likesCount ?? 0,
+      // After transaction, get the updated post data
+      const updatedPost = await db.query.posts.findFirst({
+        where: eq(posts.id, postId),
+        with: {
+          likes: true,
+        },
+      });
+
+      if (!updatedPost) {
+        throw new Error("Failed to fetch updated post");
+      }
+
+      res.json({
+        liked: updatedPost.likes.some(like => like.userId === user.id),
+        likesCount: updatedPost.likesCount,
       });
     } catch (error: any) {
       console.error("Error liking/unliking post:", error);
@@ -179,6 +178,4 @@ export function setupSocialRoutes(app: Express) {
       });
     }
   });
-  // Get post stats - This route is removed as stats are now directly on the post
-  // app.get("/api/posts/:postId/stats", requireAuth, async (req: Request, res: Response) => { ... });
 }
