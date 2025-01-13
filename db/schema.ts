@@ -1,5 +1,6 @@
 import { pgTable, text, serial, integer, decimal, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 // Base tables
 export const users = pgTable("users", {
@@ -17,6 +18,9 @@ export const users = pgTable("users", {
   xp: integer("xp").default(0).notNull(),
   level: integer("level").default(1).notNull(),
 });
+
+export type SelectUser = typeof users.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
 
 export const posts = pgTable("posts", {
   id: serial("id").primaryKey(),
@@ -115,15 +119,7 @@ export const selectPostSchema = createSelectSchema(posts);
 export const insertPostLikeSchema = createInsertSchema(postLikes);
 export const selectPostLikeSchema = createSelectSchema(postLikes);
 
-// Types
-//export type InsertUser = typeof users.$inferInsert;
-//export type SelectUser = typeof users.$inferSelect;
-//export type InsertPost = typeof posts.$inferInsert;
-//export type SelectPost = typeof posts.$inferSelect;
-//export type InsertPostLike = typeof postLikes.$inferInsert;
-//export type SelectPostLike = typeof postLikes.$inferSelect;
 
-// Other tables
 export const portfolios = pgTable("portfolios", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),

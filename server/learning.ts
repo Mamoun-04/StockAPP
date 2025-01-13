@@ -10,11 +10,6 @@ import {
 } from "@db/schema";
 import { eq, and, isNull, count } from "drizzle-orm";
 
-// Extend Express.Request with authenticated user
-interface RequestWithUser extends Request {
-  user: SelectUser;
-}
-
 // Authentication middleware
 function requireAuth(
   req: Request,
@@ -28,12 +23,29 @@ function requireAuth(
   next();
 }
 
+interface Section {
+  title: string;
+  content: string;
+  xpReward: number;
+}
+
 async function initializeLessons() {
   const initialLessons = [
     {
       title: "Introduction to Stock Trading",
       description: "Learn the basics of stock trading and market fundamentals",
-      content: "In this lesson, you'll learn about what stocks are, how the market works, and basic trading concepts.",
+      content: JSON.stringify([
+        {
+          title: "What are Stocks?",
+          content: "Stocks represent ownership shares in a company.",
+          xpReward: 20
+        },
+        {
+          title: "How the Market Works",
+          content: "A brief overview of how stock markets function.",
+          xpReward: 30
+        }
+      ]),
       difficulty: "beginner",
       xpReward: 100,
       order: 1
@@ -41,7 +53,7 @@ async function initializeLessons() {
     {
       title: "Technical Analysis Basics",
       description: "Understanding charts and basic technical indicators",
-      content: "Learn how to read stock charts and understand basic technical indicators like moving averages.",
+      content: JSON.stringify([{title: "Reading Stock Charts", content: "Learn to interpret candlestick charts and other visual representations of stock price.", xpReward: 40}, {title: "Moving Averages", content: "Understanding simple and exponential moving averages.", xpReward: 50}]),
       difficulty: "intermediate",
       xpReward: 150,
       order: 2
@@ -49,7 +61,7 @@ async function initializeLessons() {
     {
       title: "Risk Management",
       description: "Essential risk management strategies for trading",
-      content: "Understand position sizing, stop losses, and portfolio diversification.",
+      content: JSON.stringify([{title: "Position Sizing", content: "Learn how to determine the appropriate amount of capital to allocate to each trade.", xpReward: 60}, {title: "Stop Losses", content: "Setting stop-loss orders to limit potential losses.", xpReward: 70}, {title: "Portfolio Diversification", content: "Spreading your investments across different assets to reduce risk.", xpReward: 80}]),
       difficulty: "intermediate",
       xpReward: 200,
       order: 3
@@ -68,6 +80,7 @@ async function initializeLessons() {
 export function setupLearningRoutes(app: Express): void {
   // Initialize lessons when routes are set up
   initializeLessons().catch(console.error);
+
   // Get all lessons with progress for current user
   app.get("/api/lessons", requireAuth, async (req: Request, res: Response) => {
     try {
@@ -89,8 +102,16 @@ export function setupLearningRoutes(app: Express): void {
 
       const formattedLessons = allLessons.map(({ lessons: lesson, user_progress }) => ({
         ...lesson,
+        sections: JSON.parse(lesson.content || '[]') as Section[],
+        totalXP: 0,
         userProgress: user_progress ? [user_progress] : [],
+        lastUpdated: lesson.createdAt?.toISOString() || new Date().toISOString()
       }));
+
+      // Calculate total XP for each lesson from its sections
+      formattedLessons.forEach(lesson => {
+        lesson.totalXP = lesson.sections.reduce((sum: number, section: Section) => sum + section.xpReward, 0);
+      });
 
       res.json(formattedLessons);
     } catch (error: unknown) {
@@ -115,7 +136,20 @@ export function setupLearningRoutes(app: Express): void {
         return res.status(404).send("Lesson not found");
       }
 
-      res.json(lesson[0]);
+      const formattedLesson = {
+        ...lesson[0],
+        sections: JSON.parse(lesson[0].content || '[]') as Section[],
+        totalXP: 0,
+        lastUpdated: lesson[0].createdAt?.toISOString() || new Date().toISOString()
+      };
+
+      // Calculate total XP from sections
+      formattedLesson.totalXP = formattedLesson.sections.reduce(
+        (sum: number, section: Section) => sum + section.xpReward,
+        0
+      );
+
+      res.json(formattedLesson);
     } catch (error: unknown) {
       console.error('Error fetching lesson:', error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
@@ -139,6 +173,10 @@ export function setupLearningRoutes(app: Express): void {
       if (!lesson) {
         return res.status(404).send("Lesson not found");
       }
+
+      // Parse sections to calculate total XP
+      const sections = JSON.parse(lesson.content || '[]');
+      const totalLessonXP = sections.reduce((sum, section) => sum + section.xpReward, 0);
 
       // Check if lesson is already completed
       const [existingProgress] = await db
@@ -179,7 +217,7 @@ export function setupLearningRoutes(app: Express): void {
         }
 
         // Award XP to user
-        const newXP = user.xp + lesson.xpReward;
+        const newXP = user.xp + totalLessonXP;
         const newLevel = Math.floor(newXP / 1000) + 1;
 
         await tx
@@ -189,71 +227,6 @@ export function setupLearningRoutes(app: Express): void {
             level: newLevel,
           })
           .where(eq(users.id, user.id));
-
-        // Check for new achievements
-        const allAchievements = await tx
-          .select()
-          .from(achievements)
-          .leftJoin(
-            userAchievements,
-            and(
-              eq(userAchievements.achievementId, achievements.id),
-              eq(userAchievements.userId, user.id)
-            )
-          )
-          .where(isNull(userAchievements.id));
-
-        for (const { achievements: achievement } of allAchievements) {
-          if (!achievement) continue;
-
-          const requirement = achievement.requirement as {
-            type: "lessons_completed" | "xp_reached" | "level_reached";
-            value: number;
-          };
-
-          let isUnlocked = false;
-
-          switch (requirement.type) {
-            case "lessons_completed": {
-              const completedCount = await tx
-                .select({ value: count() })
-                .from(userProgress)
-                .where(
-                  and(
-                    eq(userProgress.userId, user.id),
-                    eq(userProgress.completed, true)
-                  )
-                );
-              isUnlocked = (completedCount[0]?.value || 0) >= requirement.value;
-              break;
-            }
-
-            case "xp_reached":
-              isUnlocked = newXP >= requirement.value;
-              break;
-
-            case "level_reached":
-              isUnlocked = newLevel >= requirement.value;
-              break;
-          }
-
-          if (isUnlocked) {
-            await tx.insert(userAchievements).values({
-              userId: user.id,
-              achievementId: achievement.id,
-            });
-
-            // Award achievement XP
-            const updatedXP = newXP + achievement.xpReward;
-            await tx
-              .update(users)
-              .set({
-                xp: updatedXP,
-                level: Math.floor(updatedXP / 1000) + 1,
-              })
-              .where(eq(users.id, user.id));
-          }
-        }
       });
 
       res.json({ message: "Lesson completed successfully" });
@@ -263,7 +236,6 @@ export function setupLearningRoutes(app: Express): void {
       res.status(500).json({ error: errorMessage });
     }
   });
-
   // Get user's achievements
   app.get("/api/achievements", requireAuth, async (req: Request, res: Response) => {
     try {
