@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollText, BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
+import { ScrollText, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Header from '@/components/ui/header';
 
@@ -19,7 +19,6 @@ type Lesson = {
 export default function TradingLessons() {
   const [isLessonOpen, setIsLessonOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const queryClient = useQueryClient();
 
   const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
@@ -42,39 +41,17 @@ export default function TradingLessons() {
       queryClient.invalidateQueries({ queryKey: ['/api/lessons'] });
       setIsLessonOpen(false);
       setSelectedLesson(null);
-      setCurrentSectionIndex(0);
     },
   });
 
   const handleStartLesson = (lesson: Lesson) => {
     setSelectedLesson(lesson);
     setIsLessonOpen(true);
-    setCurrentSectionIndex(0);
   };
 
   const handleLessonComplete = () => {
     if (selectedLesson) {
       completeLessonMutation.mutate(selectedLesson.id);
-    }
-  };
-
-  const getCurrentSection = () => {
-    if (!selectedLesson?.content) return null;
-    const sections = selectedLesson.content.split('\n## ');
-    return sections[currentSectionIndex];
-  };
-
-  const sections = selectedLesson?.content ? selectedLesson.content.split('\n## ').length : 0;
-
-  const handlePreviousSection = () => {
-    if (currentSectionIndex > 0) {
-      setCurrentSectionIndex(prev => prev - 1);
-    }
-  };
-
-  const handleNextSection = () => {
-    if (currentSectionIndex < sections - 1) {
-      setCurrentSectionIndex(prev => prev + 1);
     }
   };
 
@@ -84,7 +61,7 @@ export default function TradingLessons() {
       <main className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">Trading Academy</h1>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="max-w-3xl mx-auto">
           {isLoading ? (
             <Card className="animate-pulse">
               <CardHeader className="space-y-2">
@@ -111,7 +88,7 @@ export default function TradingLessons() {
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <ScrollText className="w-4 h-4" />
-                        <span>Multiple sections</span>
+                        <span>Comprehensive lesson</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <BookOpen className="w-4 h-4" />
@@ -142,7 +119,8 @@ export default function TradingLessons() {
                 <div>
                   <div className="prose dark:prose-invert max-w-none">
                     <div dangerouslySetInnerHTML={{ 
-                      __html: getCurrentSection()?.split('\n')
+                      __html: selectedLesson.content
+                        .split('\n')
                         .map(line => {
                           if (line.startsWith('# ')) {
                             return `<h1 class="text-2xl font-bold mb-4">${line.slice(2)}</h1>`;
@@ -161,32 +139,14 @@ export default function TradingLessons() {
                         .join('\n')
                     }} />
                   </div>
-                  <div className="mt-8 flex justify-between items-center">
-                    <Button 
-                      variant="outline"
-                      onClick={handlePreviousSection}
-                      disabled={currentSectionIndex === 0}
+                  <div className="mt-8 flex justify-end">
+                    <Button
+                      variant="default"
+                      onClick={handleLessonComplete}
+                      disabled={completeLessonMutation.isPending}
                     >
-                      <ChevronLeft className="mr-2 h-4 w-4" />
-                      Previous Section
+                      Complete Lesson
                     </Button>
-                    {currentSectionIndex === sections - 1 ? (
-                      <Button
-                        variant="default"
-                        onClick={handleLessonComplete}
-                        disabled={completeLessonMutation.isPending}
-                      >
-                        Complete Lesson
-                      </Button>
-                    ) : (
-                      <Button 
-                        onClick={handleNextSection}
-                        disabled={currentSectionIndex === sections - 1}
-                      >
-                        Next Section
-                        <ChevronRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    )}
                   </div>
                 </div>
               </>

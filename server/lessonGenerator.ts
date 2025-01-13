@@ -11,38 +11,47 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-async function generateLesson(topic: string, difficulty: string): Promise<string> {
-  const prompt = `Create a comprehensive, multi-section trading lesson about "${topic}" for ${difficulty} level traders.
+// Export the function so it can be used by learning.ts
+export async function generateLesson(topic: string, difficulty: string): Promise<string> {
+  const prompt = `Create a comprehensive trading lesson about "${topic}" for ${difficulty} level traders.
+  The lesson should include:
+  - A clear introduction
+  - 3-5 key learning objectives
+  - Detailed explanations of core concepts
+  - Real-world examples
+  - Common pitfalls to avoid
+  - Practice questions with answers
 
-  Structure the lesson in multiple sections, each starting with "## " to denote a new section:
+  Format the response in markdown with these sections:
 
   # ${topic}
 
+  ## Learning Objectives
+  [List 3-5 specific learning objectives]
+
   ## Introduction
-  [Brief overview of what will be covered and why it's important]
+  [Brief overview and importance of the topic]
 
-  ## Key Concepts
-  [Detailed explanation of the fundamental concepts]
+  ## Core Concepts
+  [Explain main concepts with examples]
 
-  ## Technical Details
-  [In-depth technical information with examples]
+  ### Key Terms
+  [Define important terminology]
 
-  ## Practical Applications
-  [Real-world trading scenarios and examples]
+  ## Real-World Applications
+  [At least 2 detailed real-world trading scenarios]
 
-  ## Common Mistakes and How to Avoid Them
-  [Detailed analysis of common pitfalls]
+  ## Common Mistakes
+  [List of typical mistakes with prevention strategies]
 
-  ## Advanced Strategies
-  [More sophisticated approaches and techniques]
-
-  ## Practice Exercises
-  [Hands-on exercises with solutions]
+  ## Knowledge Check
+  [Include practice questions with detailed answers]
 
   ## Summary
-  [Key takeaways and next steps]
+  [Key takeaways and action items]
 
-  Make each section substantial with detailed explanations, examples, and where appropriate, code snippets or mathematical formulas. Format everything in proper markdown.`;
+  Format everything in proper markdown with clear sections and examples.
+  Keep the tone educational but engaging.`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -50,7 +59,7 @@ async function generateLesson(topic: string, difficulty: string): Promise<string
       messages: [
         { 
           role: "system", 
-          content: "You are an expert trading educator with decades of experience creating clear, accurate, and comprehensive lessons about trading and investing. Focus on practical examples and real market scenarios."
+          content: "You are an expert trading educator creating clear, accurate lessons about trading and investing. Focus on practical examples and real market scenarios."
         },
         { 
           role: "user", 
@@ -68,7 +77,7 @@ async function generateLesson(topic: string, difficulty: string): Promise<string
   }
 }
 
-export async function generateAndStoreLesson({
+async function generateAndStoreLesson({
   title,
   description,
   difficulty,
@@ -95,7 +104,7 @@ export async function generateAndStoreLesson({
     }
 
     console.log(`Generating lesson: ${title}`);
-    const content = await generateLesson(topic, difficulty);
+    const content = await generateLesson(title, difficulty);
 
     // Store the lesson in the database
     await db.insert(lessons).values({
@@ -117,28 +126,22 @@ export async function generateAndStoreLesson({
 // Single test lesson
 const initialLessons = [
   {
-    title: "Technical Analysis Mastery",
-    description: "A comprehensive guide to technical analysis, covering chart patterns, indicators, and practical trading strategies",
-    difficulty: "Intermediate",
-    topic: "Technical Analysis",
+    title: "Introduction to Stock Markets",
+    description: "Learn the basics of how stock markets work, including market structure, order types, and trading fundamentals",
+    difficulty: "Beginner",
+    topic: "Stock Market Fundamentals",
     order: 1,
-    xpReward: 150
+    xpReward: 100
   }
 ];
 
 export async function generateInitialLessons(): Promise<void> {
   console.log("Starting initial lesson generation...");
 
-  // Clear existing lessons first
-  await db.delete(lessons);
-
-  // Generate new lesson
-  for (const lesson of initialLessons) {
-    try {
-      await generateAndStoreLesson(lesson);
-    } catch (error) {
-      console.error(`Failed to generate lesson ${lesson.title}:`, error);
-    }
+  try {
+    await generateAndStoreLesson(initialLessons[0]);
+  } catch (error) {
+    console.error(`Failed to generate lesson ${initialLessons[0].title}:`, error);
   }
 
   console.log("Completed initial lesson generation");
