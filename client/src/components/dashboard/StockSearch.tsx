@@ -63,6 +63,11 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
 
     setResults(processedResults);
     setShowResults(processedResults.length > 0);
+
+    // Auto-select the highest probability stock when clicking search
+    if (processedResults.length > 0) {
+      handleSelect(processedResults[0].symbol);
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
