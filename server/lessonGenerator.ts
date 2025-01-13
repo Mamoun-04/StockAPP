@@ -12,18 +12,52 @@ const openai = new OpenAI({
 });
 
 async function generateLesson(topic: string, difficulty: string): Promise<string> {
-  const prompt = `Create a comprehensive trading lesson about "${topic}" for ${difficulty} level traders.
-  The lesson should include:
-  - A clear introduction
-  - 3-5 key learning objectives
-  - Detailed explanations of core concepts
-  - Real-world examples
-  - Common pitfalls to avoid
-  - Practice questions with answers
+  const prompt = `Create a comprehensive, in-depth trading lesson about "${topic}" for ${difficulty} level traders.
+  The lesson should be detailed enough to take 5-10 minutes to read and understand thoroughly.
+
+  Structure the lesson with the following sections:
+  1. Introduction
+     - Overview of the topic
+     - Why this knowledge is important
+     - What traders will learn
+
+  2. Core Concepts (3-5 main concepts)
+     - Detailed explanations with real-world examples
+     - Historical context where relevant
+     - Common misconceptions and how to avoid them
+
+  3. Practical Application
+     - Step-by-step guides
+     - Real market scenarios
+     - Decision-making frameworks
+     - Tools and techniques
+
+  4. Risk Considerations
+     - Potential pitfalls
+     - Risk management strategies
+     - Common mistakes to avoid
+
+  5. Advanced Concepts (for intermediate/advanced lessons)
+     - Complex strategies
+     - Market psychology
+     - Advanced tools and techniques
+
+  6. Practice and Exercises
+     - Case studies
+     - Practice scenarios
+     - Self-assessment questions
+     - Homework assignments
+
+  7. Summary and Key Takeaways
+     - Main points recap
+     - Action items
+     - Further reading suggestions
 
   Format the response in markdown with clear sections.
-  Keep the tone educational but engaging.
-  Include specific examples and scenarios where applicable.`;
+  Use tables, bullet points, and numbered lists where appropriate.
+  Include specific examples from real market situations.
+  Add practical exercises that readers can complete.
+  Keep the tone educational but engaging.`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -31,7 +65,7 @@ async function generateLesson(topic: string, difficulty: string): Promise<string
       messages: [
         { 
           role: "system", 
-          content: "You are an expert trading educator creating clear, accurate lessons about trading and investing."
+          content: "You are an expert trading educator with decades of experience creating clear, accurate, and comprehensive lessons about trading and investing. Your goal is to create content that is both educational and engaging, with a focus on practical application and real-world examples."
         },
         { 
           role: "user", 
@@ -39,6 +73,7 @@ async function generateLesson(topic: string, difficulty: string): Promise<string
         }
       ],
       temperature: 0.7,
+      max_tokens: 4000, // Increased for longer content
     });
 
     return completion.choices[0].message.content || '';
@@ -64,8 +99,20 @@ export async function generateAndStoreLesson({
   xpReward: number;
 }): Promise<void> {
   try {
+    // Check if lesson already exists
+    const existingLesson = await db.query.lessons.findFirst({
+      where: eq(lessons.title, title)
+    });
+
+    if (existingLesson) {
+      console.log(`Lesson "${title}" already exists, skipping generation`);
+      return;
+    }
+
+    console.log(`Generating lesson: ${title}`);
     const content = await generateLesson(topic, difficulty);
 
+    // Store the lesson in the database
     await db.insert(lessons).values({
       title,
       description,
@@ -75,7 +122,7 @@ export async function generateAndStoreLesson({
       xpReward,
     });
 
-    console.log(`Generated and stored lesson: ${title}`);
+    console.log(`Successfully generated and stored lesson: ${title}`);
   } catch (error) {
     console.error(`Error processing lesson ${title}:`, error);
     throw error;
@@ -85,44 +132,41 @@ export async function generateAndStoreLesson({
 // Initial lessons to generate
 const initialLessons = [
   {
-    title: "Introduction to Stock Market Fundamentals",
-    description: "Learn the essential concepts of how stock markets work, basic terminology, and fundamental principles of trading.",
+    title: "Understanding Market Psychology and Trading Behavior",
+    description: "Learn the fundamental psychological principles that drive market movements and how to master your own trading psychology for better decision-making.",
     difficulty: "Beginner",
-    topic: "Market Basics",
+    topic: "Trading Psychology",
     order: 1,
     xpReward: 100
   },
   {
-    title: "Advanced Chart Pattern Analysis",
-    description: "Master complex technical analysis patterns and learn how to identify high-probability trading setups.",
-    difficulty: "Intermediate",
-    topic: "Technical Analysis",
+    title: "Advanced Options Trading Strategies",
+    description: "Master complex options trading strategies including multi-leg positions, volatility trading, and advanced risk management techniques.",
+    difficulty: "Advanced",
+    topic: "Options Trading",
     order: 2,
-    xpReward: 150
+    xpReward: 200
   },
   {
-    title: "Portfolio Risk Management Strategies",
-    description: "Learn sophisticated approaches to managing trading risk, position sizing, and portfolio diversification.",
-    difficulty: "Advanced",
-    topic: "Risk Management",
+    title: "Technical Analysis: From Basics to Advanced Patterns",
+    description: "A comprehensive guide to technical analysis, covering everything from basic chart patterns to complex indicators and their practical application in trading.",
+    difficulty: "Intermediate",
+    topic: "Technical Analysis",
     order: 3,
-    xpReward: 200
+    xpReward: 150
   }
 ];
 
 export async function generateInitialLessons(): Promise<void> {
+  console.log("Starting initial lesson generation...");
+
   for (const lesson of initialLessons) {
     try {
-      // Check if lesson already exists
-      const existingLesson = await db.query.lessons.findFirst({
-        where: eq(lessons.title, lesson.title)
-      });
-
-      if (!existingLesson) {
-        await generateAndStoreLesson(lesson);
-      }
+      await generateAndStoreLesson(lesson);
     } catch (error) {
       console.error(`Failed to generate lesson ${lesson.title}:`, error);
     }
   }
+
+  console.log("Completed initial lesson generation");
 }

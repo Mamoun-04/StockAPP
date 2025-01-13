@@ -1,0 +1,155 @@
+// lessonGenerator.js
+import OpenAI from 'openai';
+import { Prisma } from '@prisma/client';
+
+const prisma = new PrismaClient();
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Function to generate a lesson using OpenAI
+async function generateLesson(topic, difficulty) {
+  const prompt = `Create a comprehensive trading lesson about "${topic}" for ${difficulty} level traders.
+  The lesson should include:
+  - A clear introduction
+  - 3-5 key learning objectives
+  - Detailed explanations of core concepts
+  - Real-world examples
+  - Common pitfalls to avoid
+  - Practice questions with answers
+  
+  Format the response in markdown with clear sections.
+  Keep the tone educational but engaging.
+  Include specific examples and scenarios where applicable.`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages: [
+        { 
+          role: "system", 
+          content: "You are an expert trading educator creating clear, accurate lessons about trading and investing."
+        },
+        { 
+          role: "user", 
+          content: prompt 
+        }
+      ],
+      temperature: 0.7,
+    });
+
+    return completion.choices[0].message.content;
+  } catch (error) {
+    console.error('Error generating lesson:', error);
+    throw error;
+  }
+}
+
+// Function to generate and store a batch of lessons
+async function generateAndStoreLessons() {
+  const lessonTopics = [
+    {
+      topic: "Introduction to Stock Markets",
+      difficulty: "Beginner",
+      description: "Learn the basics of how stock markets work"
+    },
+    {
+      topic: "Technical Analysis Fundamentals",
+      difficulty: "Intermediate",
+      description: "Master the basics of chart reading and technical indicators"
+    },
+    // Add more topics as needed
+  ];
+
+  for (const lessonInfo of lessonTopics) {
+    try {
+      // Check if lesson already exists
+      const existingLesson = await prisma.lesson.findFirst({
+        where: {
+          topic: lessonInfo.topic,
+          difficulty: lessonInfo.difficulty,
+        },
+      });
+
+      if (!existingLesson) {
+        const content = await generateLesson(lessonInfo.topic, lessonInfo.difficulty);
+        
+        await prisma.lesson.create({
+          data: {
+            topic: lessonInfo.topic,
+            difficulty: lessonInfo.difficulty,
+            description: lessonInfo.description,
+            content: content,
+            lastUpdated: new Date(),
+          },
+        });
+        
+        console.log(`Generated and stored lesson: ${lessonInfo.topic}`);
+      }
+    } catch (error) {
+      console.error(`Error processing lesson ${lessonInfo.topic}:`, error);
+    }
+  }
+}
+
+// schema.prisma
+/*
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Lesson {
+  id          Int      @id @default(autoincrement())
+  topic       String
+  difficulty  String
+  description String
+  content     String   @db.Text
+  lastUpdated DateTime
+  
+  // Optional: Add relationships to other models
+  questions   Question[]
+  userProgress UserProgress[]
+}
+
+model Question {
+  id        Int     @id @default(autoincrement())
+  lessonId  Int
+  question  String
+  answer    String
+  lesson    Lesson  @relation(fields: [lessonId], references: [id])
+}
+
+model UserProgress {
+  id        Int     @id @default(autoincrement())
+  userId    Int
+  lessonId  Int
+  completed Boolean @default(false)
+  lesson    Lesson  @relation(fields: [lessonId], references: [id])
+}
+*/
+
+// API route to fetch lessons
+async function getLessons(difficulty = null, topic = null) {
+  const where = {};
+  if (difficulty) where.difficulty = difficulty;
+  if (topic) where.topic = topic;
+
+  return await prisma.lesson.findMany({
+    where,
+    select: {
+      id: true,
+      topic: true,
+      difficulty: true,
+      description: true,
+      content: true,
+      lastUpdated: true,
+    },
+  });
+}
+
+export { generateAndStoreLessons, getLessons };

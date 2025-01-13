@@ -28,46 +28,7 @@ function requireAuth(
   next();
 }
 
-async function initializeLessons() {
-  const initialLessons = [
-    {
-      title: "Introduction to Stock Trading",
-      description: "Learn the basics of stock trading and market fundamentals",
-      content: "In this lesson, you'll learn about what stocks are, how the market works, and basic trading concepts.",
-      difficulty: "beginner",
-      xpReward: 100,
-      order: 1
-    },
-    {
-      title: "Technical Analysis Basics",
-      description: "Understanding charts and basic technical indicators",
-      content: "Learn how to read stock charts and understand basic technical indicators like moving averages.",
-      difficulty: "intermediate",
-      xpReward: 150,
-      order: 2
-    },
-    {
-      title: "Risk Management",
-      description: "Essential risk management strategies for trading",
-      content: "Understand position sizing, stop losses, and portfolio diversification.",
-      difficulty: "intermediate",
-      xpReward: 200,
-      order: 3
-    }
-  ];
-
-  // Add lessons if they don't exist
-  for (const lesson of initialLessons) {
-    const exists = await db.select().from(lessons).where(eq(lessons.title, lesson.title)).limit(1);
-    if (!exists.length) {
-      await db.insert(lessons).values(lesson);
-    }
-  }
-}
-
 export function setupLearningRoutes(app: Express): void {
-  // Initialize lessons when routes are set up
-  initializeLessons().catch(console.error);
   // Get all lessons with progress for current user
   app.get("/api/lessons", requireAuth, async (req: Request, res: Response) => {
     try {
@@ -189,71 +150,6 @@ export function setupLearningRoutes(app: Express): void {
             level: newLevel,
           })
           .where(eq(users.id, user.id));
-
-        // Check for new achievements
-        const allAchievements = await tx
-          .select()
-          .from(achievements)
-          .leftJoin(
-            userAchievements,
-            and(
-              eq(userAchievements.achievementId, achievements.id),
-              eq(userAchievements.userId, user.id)
-            )
-          )
-          .where(isNull(userAchievements.id));
-
-        for (const { achievements: achievement } of allAchievements) {
-          if (!achievement) continue;
-
-          const requirement = achievement.requirement as {
-            type: "lessons_completed" | "xp_reached" | "level_reached";
-            value: number;
-          };
-
-          let isUnlocked = false;
-
-          switch (requirement.type) {
-            case "lessons_completed": {
-              const completedCount = await tx
-                .select({ value: count() })
-                .from(userProgress)
-                .where(
-                  and(
-                    eq(userProgress.userId, user.id),
-                    eq(userProgress.completed, true)
-                  )
-                );
-              isUnlocked = (completedCount[0]?.value || 0) >= requirement.value;
-              break;
-            }
-
-            case "xp_reached":
-              isUnlocked = newXP >= requirement.value;
-              break;
-
-            case "level_reached":
-              isUnlocked = newLevel >= requirement.value;
-              break;
-          }
-
-          if (isUnlocked) {
-            await tx.insert(userAchievements).values({
-              userId: user.id,
-              achievementId: achievement.id,
-            });
-
-            // Award achievement XP
-            const updatedXP = newXP + achievement.xpReward;
-            await tx
-              .update(users)
-              .set({
-                xp: updatedXP,
-                level: Math.floor(updatedXP / 1000) + 1,
-              })
-              .where(eq(users.id, user.id));
-          }
-        }
       });
 
       res.json({ message: "Lesson completed successfully" });
@@ -263,7 +159,6 @@ export function setupLearningRoutes(app: Express): void {
       res.status(500).json({ error: errorMessage });
     }
   });
-
   // Get user's achievements
   app.get("/api/achievements", requireAuth, async (req: Request, res: Response) => {
     try {
