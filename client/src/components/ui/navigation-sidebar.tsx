@@ -24,29 +24,29 @@ export default function NavigationSidebar() {
   ];
 
   return (
-    <aside className="fixed left-0 top-16 bottom-14 z-30 w-64 border-r border-border bg-background">
-      <nav className="h-full overflow-y-auto pb-4">
-        <div className="flex flex-col gap-1 p-4">
+    <div className="w-64 border-r bg-background flex-shrink-0 overflow-y-auto">
+      <nav className="pt-16 px-6">
+        <div className="space-y-7">
           {navItems.map((item) => (
             <Link key={item.label} href={item.href}>
               <Button
                 variant="ghost"
-                className="w-full justify-start text-base py-2 px-4 font-normal h-auto hover:bg-accent/50"
+                className="w-[90%] justify-start text-base py-2 px-6 font-normal h-auto"
               >
-                <item.icon className="h-5 w-5 mr-3 shrink-0" />
+                <item.icon className="h-6 w-6 mr-4" />
                 {item.label}
               </Button>
             </Link>
           ))}
           <Button
             variant="ghost"
-            className="w-full justify-start text-base py-2 px-4 font-normal h-auto hover:bg-accent/50"
+            className="w-[90%] justify-start text-base py-2 px-6 font-normal h-auto"
           >
-            <MoreHorizontal className="h-5 w-5 mr-3 shrink-0" />
+            <MoreHorizontal className="h-6 w-6 mr-4" />
             More
           </Button>
         </div>
       </nav>
-    </aside>
+    </div>
   );
 }

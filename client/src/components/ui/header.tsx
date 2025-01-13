@@ -13,7 +13,7 @@ export default function Header() {
   const { logout } = useUser();
 
   return (
-    <nav className="fixed top-0 left-0 right-0 border-b bg-white dark:bg-gray-900 z-50">
+    <nav className="border-b bg-white dark:bg-gray-900">
       <div className="max-w-screen-2xl mx-auto px-4">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-8">
