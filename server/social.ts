@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "@db";
-import { posts, comments, users, postLikes, type SelectUser } from "@db/schema";
+import { posts, comments, postLikes, type SelectUser } from "@db/schema";
 import { eq, desc, and } from "drizzle-orm";
 
 // Authentication middleware
@@ -25,25 +25,24 @@ export function setupSocialRoutes(app: Express) {
             },
             orderBy: desc(comments.createdAt),
           },
+          likes: true,
         },
         orderBy: desc(posts.createdAt),
         limit: 50,
       });
 
-      // Add user's like status to each post
-      const postsWithLikeStatus = await Promise.all(feedPosts.map(async (post) => {
-        const userLike = await db.query.postLikes.findFirst({
-          where: and(
-            eq(postLikes.postId, post.id),
-            eq(postLikes.userId, user.id)
-          ),
-        });
+      // Transform posts to include like status and count
+      const postsWithLikeStatus = feedPosts.map((post) => {
+        const isLiked = post.likes.some(like => like.userId === user.id);
+        const likesCount = post.likes.length;
 
         return {
           ...post,
-          isLiked: !!userLike,
+          isLiked,
+          likesCount,
+          likes: undefined, // Don't send the full likes array to the client
         };
-      }));
+      });
 
       res.json(postsWithLikeStatus);
     } catch (error: any) {
@@ -77,19 +76,26 @@ export function setupSocialRoutes(app: Express) {
         profitLoss,
         createdAt: new Date(),
         updatedAt: new Date(),
-        likesCount: 0 // Initialize likesCount here
       }).returning();
 
-
-      // Return the post with author information 
+      // Return the post with author information and empty likes array
       const postWithDetails = await db.query.posts.findFirst({
         where: eq(posts.id, newPost.id),
         with: {
           author: true,
+          likes: true,
         },
       });
 
-      res.json(postWithDetails);
+      // Format response
+      const response = postWithDetails ? {
+        ...postWithDetails,
+        isLiked: false,
+        likesCount: 0,
+        likes: undefined,
+      } : null;
+
+      res.json(response);
     } catch (error: any) {
       console.error("Error creating post:", error);
       res.status(500).json({ 
@@ -112,6 +118,9 @@ export function setupSocialRoutes(app: Express) {
       // Check if post exists
       const post = await db.query.posts.findFirst({
         where: eq(posts.id, postId),
+        with: {
+          likes: true,
+        },
       });
 
       if (!post) {
@@ -119,57 +128,35 @@ export function setupSocialRoutes(app: Express) {
       }
 
       // Check if user already liked the post
-      const existingLike = await db.query.postLikes.findFirst({
-        where: and(
-          eq(postLikes.postId, postId),
-          eq(postLikes.userId, user.id)
-        ),
-      });
+      const existingLike = post.likes.find(like => like.userId === user.id);
 
       if (existingLike) {
         // Unlike the post
-        await db.delete(postLikes)
+        await db
+          .delete(postLikes)
           .where(and(
             eq(postLikes.postId, postId),
             eq(postLikes.userId, user.id)
           ));
 
-        // Decrement likes count
-        await db
-          .update(posts)
-          .set({ 
-            likesCount: Math.max(0, post.likesCount - 1),
-            updatedAt: new Date()
-          })
-          .where(eq(posts.id, postId));
+        return res.json({ 
+          liked: false,
+          likesCount: post.likes.length - 1
+        });
+      } 
 
-      } else {
-        // Like the post
-        await db.insert(postLikes)
-          .values({
-            postId,
-            userId: user.id,
-            createdAt: new Date(),
-          });
-
-        // Increment likes count
-        await db
-          .update(posts)
-          .set({ 
-            likesCount: post.likesCount + 1,
-            updatedAt: new Date()
-          })
-          .where(eq(posts.id, postId));
-      }
-
-      // Get updated post
-      const updatedPost = await db.query.posts.findFirst({
-        where: eq(posts.id, postId),
-      });
+      // Like the post
+      await db
+        .insert(postLikes)
+        .values({
+          postId,
+          userId: user.id,
+          createdAt: new Date(),
+        });
 
       res.json({ 
-        liked: !existingLike,
-        likesCount: updatedPost?.likesCount ?? 0,
+        liked: true,
+        likesCount: post.likes.length + 1
       });
     } catch (error: any) {
       console.error("Error liking/unliking post:", error);
@@ -179,6 +166,4 @@ export function setupSocialRoutes(app: Express) {
       });
     }
   });
-  // Get post stats - This route is removed as stats are now directly on the post
-  // app.get("/api/posts/:postId/stats", requireAuth, async (req: Request, res: Response) => { ... });
 }
