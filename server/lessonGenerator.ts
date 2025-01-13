@@ -12,71 +12,37 @@ const openai = new OpenAI({
 });
 
 async function generateLesson(topic: string, difficulty: string): Promise<string> {
-  const prompt = `Create an interactive, comprehensive trading lesson about "${topic}" for ${difficulty} level traders.
+  const prompt = `Create a comprehensive, multi-section trading lesson about "${topic}" for ${difficulty} level traders.
 
-  Structure the lesson in this format:
+  Structure the lesson in multiple sections, each starting with "## " to denote a new section:
 
   # ${topic}
 
-  ## Learning Objectives
-  [List 3-5 specific learning objectives]
-
   ## Introduction
-  [Brief overview and importance of the topic]
+  [Brief overview of what will be covered and why it's important]
 
-  ## Core Concepts
-  [Explain main concepts with examples]
+  ## Key Concepts
+  [Detailed explanation of the fundamental concepts]
 
-  ### Key Terms
-  [Define important terminology]
+  ## Technical Details
+  [In-depth technical information with examples]
 
-  ## Real-World Applications
-  [At least 2 detailed real-world trading scenarios]
+  ## Practical Applications
+  [Real-world trading scenarios and examples]
 
-  ### Practice Scenario 1
-  **Situation:** [Real market situation]
-  **Your Task:** [What needs to be analyzed/decided]
-  <details>
-  <summary>Click to see solution</summary>
-  [Detailed explanation of the optimal approach]
-  </details>
+  ## Common Mistakes and How to Avoid Them
+  [Detailed analysis of common pitfalls]
 
-  ### Practice Scenario 2
-  **Situation:** [Another market scenario]
-  **Your Task:** [Decision making exercise]
-  <details>
-  <summary>Click to see solution</summary>
-  [Step-by-step solution]
-  </details>
+  ## Advanced Strategies
+  [More sophisticated approaches and techniques]
 
-  ## Common Mistakes
-  [List of typical mistakes with prevention strategies]
-
-  ## Knowledge Check
-  ### Question 1
-  **Q:** [Challenging question about the topic]
-  <details>
-  <summary>Show Answer</summary>
-  [Detailed explanation]
-  </details>
-
-  ### Question 2
-  **Q:** [Another scenario-based question]
-  <details>
-  <summary>Show Answer</summary>
-  [Comprehensive answer]
-  </details>
-
-  ## Advanced Insights
-  [Deeper analysis and advanced strategies]
+  ## Practice Exercises
+  [Hands-on exercises with solutions]
 
   ## Summary
-  [Key takeaways and action items]
+  [Key takeaways and next steps]
 
-  ## Further Resources
-  [Suggested readings and tools]
-
-  Format everything in proper markdown with clear sections and examples.`;
+  Make each section substantial with detailed explanations, examples, and where appropriate, code snippets or mathematical formulas. Format everything in proper markdown.`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -118,6 +84,7 @@ export async function generateAndStoreLesson({
   xpReward: number;
 }): Promise<void> {
   try {
+    // Check if lesson already exists
     const existingLesson = await db.query.lessons.findFirst({
       where: eq(lessons.title, title)
     });
@@ -130,6 +97,7 @@ export async function generateAndStoreLesson({
     console.log(`Generating lesson: ${title}`);
     const content = await generateLesson(topic, difficulty);
 
+    // Store the lesson in the database
     await db.insert(lessons).values({
       title,
       description,
@@ -146,30 +114,14 @@ export async function generateAndStoreLesson({
   }
 }
 
-// Initial lessons to generate
+// Single test lesson
 const initialLessons = [
   {
-    title: "Understanding Market Psychology and Trading Behavior",
-    description: "Learn the fundamental psychological principles that drive market movements and how to master your own trading psychology for better decision-making.",
-    difficulty: "Beginner",
-    topic: "Trading Psychology",
-    order: 1,
-    xpReward: 100
-  },
-  {
-    title: "Advanced Options Trading Strategies",
-    description: "Master complex options trading strategies including multi-leg positions, volatility trading, and advanced risk management techniques.",
-    difficulty: "Advanced",
-    topic: "Options Trading",
-    order: 2,
-    xpReward: 200
-  },
-  {
-    title: "Technical Analysis: From Basics to Advanced Patterns",
-    description: "A comprehensive guide to technical analysis, covering everything from basic chart patterns to complex indicators and their practical application in trading.",
+    title: "Technical Analysis Mastery",
+    description: "A comprehensive guide to technical analysis, covering chart patterns, indicators, and practical trading strategies",
     difficulty: "Intermediate",
     topic: "Technical Analysis",
-    order: 3,
+    order: 1,
     xpReward: 150
   }
 ];
@@ -177,6 +129,10 @@ const initialLessons = [
 export async function generateInitialLessons(): Promise<void> {
   console.log("Starting initial lesson generation...");
 
+  // Clear existing lessons first
+  await db.delete(lessons);
+
+  // Generate new lesson
   for (const lesson of initialLessons) {
     try {
       await generateAndStoreLesson(lesson);
