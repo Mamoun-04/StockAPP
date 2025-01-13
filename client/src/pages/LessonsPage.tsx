@@ -88,7 +88,7 @@ export default function LessonPage() {
   };
 
   const queryClient = useQueryClient();
-  
+
   const completeMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch(`/api/lessons/${lesson.id}/complete`, {
@@ -209,27 +209,24 @@ export default function LessonPage() {
               </Dialog>
             </div>
           </div>
-
-          {/* Collapsible sections */}
-          <div className="mt-6">
-            <Accordion type="single" collapsible className="space-y-2">
-              {lesson.sections.map((section, index) => (
-                <AccordionItem key={index} value={`section-${index}`} className="border rounded-lg bg-secondary/10">
-                  <AccordionTrigger className="px-4">
-                    <div className="flex items-center justify-between w-full">
-                      <span className="text-sm">{section.title}</span>
-                      <Badge variant="outline" className="ml-2">+{section.xpReward} XP</Badge>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4">
-                    <div className="prose dark:prose-invert max-w-none">
-                      {section.content}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </div>
+          <Accordion type="single" collapsible className="space-y-2">
+            <AccordionItem value="lesson-content">
+              <AccordionTrigger className="px-4">
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-sm">Lesson Content</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                {lesson.sections.map((section, index) => (
+                  <div key={index} className="py-2 border-b border-gray-200 last:border-b-0">
+                    <h3 className="text-lg font-medium">{section.title}</h3>
+                    <p className="mt-1 text-gray-700">{section.content}</p>
+                    <Badge variant="outline" className="mt-2">+{section.xpReward} XP</Badge>
+                  </div>
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
       </Card>
     </div>
