@@ -34,37 +34,63 @@ export default function LessonPage() {
   const [isLessonOpen, setIsLessonOpen] = useState(false);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
 
-  const { data: lesson, isLoading } = useQuery({
-    queryKey: ['lesson', 1], // Fetching the first lesson for now
-    queryFn: async () => {
-      const response = await fetch('/api/lessons/1');
-      if (!response.ok) throw new Error('Failed to fetch lesson');
-      const lessonData = await response.json();
-      return {
-        ...lessonData,
-        lastUpdated: new Date(lessonData.created_at),
-        totalXP: lessonData.xp_reward,
-        sections: [
-          {
-            title: lessonData.title,
-            content: lessonData.content,
-            xpReward: lessonData.xp_reward
-          }
-        ]
-      };
+  // Mock data - replace with actual API call
+  const lesson: Lesson = {
+    id: 1,
+    title: "Introduction to Stock Trading",
+    description: "A comprehensive guide to trading fundamentals",
+    difficulty: "beginner",
+    lastUpdated: new Date(),
+    totalXP: 900,
+    sections: [
+      {
+        title: "Learn the basics of stock trading and market fundamentals",
+        content: "Content for basics...",
+        xpReward: 100
+      },
+      {
+        title: "Learn the basics of how the stock market works",
+        content: "Content for market mechanics...",
+        xpReward: 100
+      },
+      {
+        title: "Understanding charts and basic technical indicators",
+        content: "Content for technical analysis...",
+        xpReward: 150
+      },
+      {
+        title: "Learn about fundamental and technical analysis",
+        content: "Content for analysis methods...",
+        xpReward: 150
+      },
+      {
+        title: "Essential risk management strategies for trading",
+        content: "Content for risk management...",
+        xpReward: 200
+      },
+      {
+        title: "Learn how to protect your investments",
+        content: "Content for investment protection...",
+        xpReward: 200
+      }
+    ]
+  };
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty.toLowerCase()) {
+      case 'beginner':
+        return 'bg-emerald-500';
+      case 'intermediate':
+        return 'bg-amber-500';
+      case 'advanced':
+        return 'bg-red-500';
+      default:
+        return 'bg-gray-500';
     }
-  });
-
-  if (isLoading) {
-    return <div>Loading lesson...</div>;
-  }
-
-  if (!lesson) {
-    return <div>Lesson not found</div>;
-  }
+  };
 
   const queryClient = useQueryClient();
-  
+
   const completeMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch(`/api/lessons/${lesson.id}/complete`, {
@@ -90,19 +116,6 @@ export default function LessonPage() {
       setCurrentSectionIndex(0);
     }
   });
-
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty.toLowerCase()) {
-      case 'beginner':
-        return 'bg-emerald-500';
-      case 'intermediate':
-        return 'bg-amber-500';
-      case 'advanced':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
 
   const nextSection = () => {
     if (currentSectionIndex < lesson.sections.length - 1) {
