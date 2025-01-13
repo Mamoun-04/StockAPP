@@ -35,9 +35,13 @@ export default function LessonPage() {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
 
   const { data: lesson, isLoading } = useQuery<Lesson>({
-    queryKey: ['lesson', 1], // You might want to make this dynamic based on the lesson ID
+    queryKey: ['lesson', 1],
     queryFn: async () => {
       const response = await fetch('/api/lessons/1');
+      if (response.status === 401) {
+        window.location.href = '/auth';
+        return null;
+      }
       if (!response.ok) throw new Error('Failed to load lesson');
       const data = await response.json();
       return {
