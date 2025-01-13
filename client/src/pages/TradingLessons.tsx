@@ -1,12 +1,12 @@
+
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollText, BookOpen, GraduationCap } from "lucide-react";
+import { ScrollText, BookOpen, GraduationCap, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
 import Header from '@/components/ui/header';
-
 import { Badge } from "@/components/ui/badge";
 
 type Lesson = {
@@ -25,14 +25,36 @@ export default function TradingLessons() {
   const [selectedTopic, setSelectedTopic] = useState('all');
   const [isLessonOpen, setIsLessonOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [_, setLocation] = useLocation();
+  const queryClient = useQueryClient();
 
   const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
     queryKey: ['/api/lessons'],
   });
 
+  const completeLessonMutation = useMutation({
+    mutationFn: async (lessonId: number) => {
+      const response = await fetch(`/api/lessons/${lessonId}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ score: 100 }),
+      });
+      if (!response.ok) throw new Error('Failed to complete lesson');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/lessons'] });
+      setIsLessonOpen(false);
+      setSelectedLesson(null);
+      setCurrentSectionIndex(0);
+    },
+  });
+
   const difficulties = ['Beginner', 'Intermediate', 'Advanced'];
-  const topics = Array.from(new Set(lessons.map(lesson => lesson.topic))).sort(); //Sort topics alphabetically
+  const topics = Array.from(new Set(lessons.map(lesson => lesson.topic))).sort();
 
   const filteredLessons = lessons.filter((lesson) => {
     const difficultyMatch = selectedDifficulty === 'all' || lesson.difficulty === selectedDifficulty;
@@ -43,10 +65,33 @@ export default function TradingLessons() {
   const handleStartLesson = (lesson: Lesson) => {
     setSelectedLesson(lesson);
     setIsLessonOpen(true);
+    setCurrentSectionIndex(0);
   };
 
   const handleLessonComplete = () => {
-    //Implementation for lesson completion
+    if (selectedLesson) {
+      completeLessonMutation.mutate(selectedLesson.id);
+    }
+  };
+
+  const getCurrentSection = () => {
+    if (!selectedLesson?.content) return null;
+    const sections = selectedLesson.content.split('\n## ');
+    return sections[currentSectionIndex];
+  };
+
+  const totalSections = selectedLesson?.content ? selectedLesson.content.split('\n## ').length : 0;
+
+  const handlePreviousSection = () => {
+    if (currentSectionIndex > 0) {
+      setCurrentSectionIndex(prev => prev - 1);
+    }
+  };
+
+  const handleNextSection = () => {
+    if (currentSectionIndex < totalSections - 1) {
+      setCurrentSectionIndex(prev => prev + 1);
+    }
   };
 
   return (
@@ -58,40 +103,36 @@ export default function TradingLessons() {
           <div className="flex flex-wrap gap-4 mb-6">
             <div>
               <h3 className="text-sm font-medium mb-2">Difficulty</h3>
-              <div className="flex gap-2">
-                <select
-                  value={selectedDifficulty}
-                  onChange={(e) => setSelectedDifficulty(e.target.value)}
-                  className="p-2 border rounded"
-                >
-                  <option value="all">All Difficulties</option>
-                  {difficulties.map(diff => (
-                    <option key={diff} value={diff}>{diff}</option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={selectedDifficulty}
+                onChange={(e) => setSelectedDifficulty(e.target.value)}
+                className="p-2 border rounded"
+              >
+                <option value="all">All Difficulties</option>
+                {difficulties.map(diff => (
+                  <option key={diff} value={diff}>{diff}</option>
+                ))}
+              </select>
             </div>
             <div>
               <h3 className="text-sm font-medium mb-2">Topics</h3>
-              <div className="flex gap-2 flex-wrap">
-                <select
-                  value={selectedTopic}
-                  onChange={(e) => setSelectedTopic(e.target.value)}
-                  className="p-2 border rounded"
-                >
-                  <option value="all">All Topics</option>
-                  {topics.map(topic => (
-                    <option key={topic} value={topic}>{topic}</option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={selectedTopic}
+                onChange={(e) => setSelectedTopic(e.target.value)}
+                className="p-2 border rounded"
+              >
+                <option value="all">All Topics</option>
+                {topics.map(topic => (
+                  <option key={topic} value={topic}>{topic}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {isLoading ? (
+            Array(6).fill(null).map((_, i) => (
               <Card key={i} className="animate-pulse">
                 <CardHeader className="space-y-2">
                   <div className="h-4 bg-muted rounded w-3/4"></div>
@@ -102,21 +143,16 @@ export default function TradingLessons() {
                   <div className="h-3 bg-muted rounded w-2/3"></div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredLessons.map((lesson) => (
-              <Card
-                key={lesson.id}
-                className="hover:shadow-lg transition-shadow"
-              >
+            ))
+          ) : (
+            filteredLessons.map((lesson) => (
+              <Card key={lesson.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <CardTitle className="text-xl">{lesson.title}</CardTitle>
                     <Badge variant={
                       lesson.difficulty === 'Beginner' ? 'default' :
-                        lesson.difficulty === 'Intermediate' ? 'secondary' : 'destructive'
+                      lesson.difficulty === 'Intermediate' ? 'secondary' : 'destructive'
                     }>
                       {lesson.difficulty}
                     </Badge>
@@ -135,25 +171,22 @@ export default function TradingLessons() {
                         <span>{lesson.duration || '15 mins'}</span>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-1"
-                        onClick={() => handleStartLesson(lesson)}
-                      >
-                        <GraduationCap className="w-4 h-4" />
-                        Start Lesson
-                      </Button>
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1"
+                      onClick={() => handleStartLesson(lesson)}
+                    >
+                      <GraduationCap className="w-4 h-4" />
+                      Start Lesson
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
 
-        {/* Lesson Content Dialog */}
         <Dialog open={isLessonOpen} onOpenChange={setIsLessonOpen}>
           <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
             {selectedLesson && (
@@ -164,8 +197,7 @@ export default function TradingLessons() {
                 <div>
                   <div className="prose dark:prose-invert max-w-none">
                     <div dangerouslySetInnerHTML={{ 
-                      __html: selectedLesson.content
-                        .split('\n')
+                      __html: getCurrentSection()?.split('\n')
                         .map(line => {
                           if (line.startsWith('# ')) {
                             return `<h1 class="text-2xl font-bold mb-4">${line.slice(2)}</h1>`;
@@ -187,28 +219,29 @@ export default function TradingLessons() {
                   <div className="mt-8 flex justify-between items-center">
                     <Button 
                       variant="outline"
-                      onClick={() => {
-                        const sections = selectedLesson.content.split('\n## ');
-                        // Implementation for previous section
-                      }}
+                      onClick={handlePreviousSection}
+                      disabled={currentSectionIndex === 0}
                     >
+                      <ChevronLeft className="mr-2 h-4 w-4" />
                       Previous Section
                     </Button>
-                    <Button 
-                      onClick={() => {
-                        const sections = selectedLesson.content.split('\n## ');
-                        // Implementation for next section
-                      }}
-                    >
-                      Next Section
-                    </Button>
-                    <Button
-                      variant="default"
-                      onClick={handleLessonComplete}
-                      className="ml-4"
-                    >
-                      Complete Lesson
-                    </Button>
+                    {currentSectionIndex === totalSections - 1 ? (
+                      <Button
+                        variant="default"
+                        onClick={handleLessonComplete}
+                        disabled={completeLessonMutation.isPending}
+                      >
+                        Complete Lesson
+                      </Button>
+                    ) : (
+                      <Button 
+                        onClick={handleNextSection}
+                        disabled={currentSectionIndex === totalSections - 1}
+                      >
+                        Next Section
+                        <ChevronRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </>
