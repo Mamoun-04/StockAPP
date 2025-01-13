@@ -113,13 +113,19 @@ export const repostsRelations = relations(reposts, ({ one }) => ({
 //export const insertPostLikeSchema = createInsertSchema(postLikes);
 //export const selectPostLikeSchema = createSelectSchema(postLikes);
 
+import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
+
+// Schema validation
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);
+
 // Types
-//export type InsertUser = typeof users.$inferInsert;
-//export type SelectUser = typeof users.$inferSelect;
-//export type InsertPost = typeof posts.$inferInsert;
-//export type SelectPost = typeof posts.$inferSelect;
-//export type InsertPostLike = typeof postLikes.$inferInsert;
-//export type SelectPostLike = typeof postLikes.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
+export type SelectUser = typeof users.$inferSelect;
+export type InsertPost = typeof posts.$inferInsert;
+export type SelectPost = typeof posts.$inferSelect;
+export type InsertPostLike = typeof postLikes.$inferInsert;
+export type SelectPostLike = typeof postLikes.$inferSelect;
 
 // Other tables
 export const portfolios = pgTable("portfolios", {
