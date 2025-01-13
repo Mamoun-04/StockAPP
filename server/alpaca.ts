@@ -146,6 +146,39 @@ export function setupAlpacaRoutes(app: Express) {
     }
   });
 
+
+  app.get("/api/market/assets", requireAuth, checkAlpacaCredentials, async (req: AuthenticatedRequest, res) => {
+    try {
+      console.log("Fetching available assets");
+      const alpaca = new Alpaca({
+        keyId: process.env.ALPACA_API_KEY!,
+        secretKey: process.env.ALPACA_SECRET_KEY!,
+        paper: true,
+        baseUrl: 'https://paper-api.alpaca.markets'
+      });
+
+      const assets = await alpaca.getAssets({
+        status: 'active',
+        asset_class: 'us_equity'
+      });
+
+      const response = assets.map(asset => ({
+        symbol: asset.symbol,
+        name: asset.name,
+        class: asset.class
+      }));
+
+      console.log(`Successfully fetched ${response.length} assets`);
+      res.json(response);
+    } catch (error: any) {
+      console.error('Error fetching assets:', error);
+      res.status(500).json({
+        error: "Failed to fetch assets",
+        details: error.message
+      });
+    }
+  });
+
   app.post("/api/trade", requireAuth, checkAlpacaCredentials, async (req: AuthenticatedRequest, res) => {
     try {
       console.log("Executing trade:", req.body);
