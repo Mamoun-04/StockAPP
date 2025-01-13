@@ -3,11 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, BookOpen } from "lucide-react";
+import { ScrollText, BookOpen, MessageCircle, GraduationCap } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
-import Header from "@/components/ui/header";
-import Footer from "@/components/ui/footer";
-import { Flashcard } from "@/components/ui/flashcard";
 import {
   Dialog,
   DialogContent,
@@ -16,50 +13,40 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-// Transform lesson content into fill-in-the-blank flashcard format
+// Enhanced flashcard generation using GPT-generated content
 function createFlashcardsFromLesson(content: string) {
-  const lines = content.split('\n').filter(line => line.trim());
+  // Split content into sections based on markdown headers
+  const sections = content.split(/(?=## )/);
   const flashcards = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (/^\d+\./.test(line)) {
-      const topic = line.replace(/^\d+\.\s*/, '').trim();
-      let details = [];
+  for (const section of sections) {
+    const lines = section.split('\n').filter(line => line.trim());
 
-      i++;
-      while (i < lines.length && !/^\d+\./.test(lines[i])) {
-        if (lines[i].trim()) {
-          details.push(lines[i].trim());
-        }
-        i++;
-      }
-      i--; // Move back one step since for loop will increment
-
-      if (details.length > 0) {
-        // Create fill-in-the-blank style questions
-        const key = topic.split(' ')[0]; // Use first word as the blank
-        flashcards.push({
-          question: `${topic.replace(key, '_____')} ?`,
-          answer: key
-        });
-
-        // Create additional cards from the details
-        details.forEach(detail => {
-          const words = detail.split(' ');
-          const keyWordIndex = Math.floor(words.length / 2);
-          const keyWord = words[keyWordIndex];
-          const question = words.map((word, idx) => 
-            idx === keyWordIndex ? '_____' : word
-          ).join(' ');
-
-          flashcards.push({
-            question: question,
-            answer: keyWord
-          });
-        });
-      }
+    // Get section title if it exists
+    const titleMatch = lines[0].match(/## (.*)/);
+    if (titleMatch) {
+      const title = titleMatch[1];
+      // Create a question from the section title
+      flashcards.push({
+        question: `What is the main topic being discussed in this section: "${title.replace(/[^,.:\s]+ /, '_____')}"?`,
+        answer: title.split(' ')[0]
+      });
     }
+
+    // Process bullet points and key concepts
+    lines.forEach(line => {
+      if (line.startsWith('• ') || line.startsWith('- ')) {
+        const content = line.replace(/^[•-]\s/, '');
+        const words = content.split(' ');
+        const keyWordIndex = Math.floor(Math.random() * words.length);
+        const keyWord = words[keyWordIndex];
+
+        flashcards.push({
+          question: content.replace(keyWord, '_____'),
+          answer: keyWord
+        });
+      }
+    });
   }
 
   return flashcards;
@@ -67,11 +54,12 @@ function createFlashcardsFromLesson(content: string) {
 
 type Lesson = {
   id: number;
-  title: string;
+  topic: string;
   description: string;
   content: string;
   difficulty: string;
-  xpReward: number;
+  lastUpdated: Date;
+  xpReward?: number;
   userProgress?: Array<{
     completed: boolean;
     score: number;
@@ -82,11 +70,20 @@ export default function LessonsPage() {
   const queryClient = useQueryClient();
   const { user } = useUser();
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [showFlashcards, setShowFlashcards] = useState(false);
 
-  // Fetch lessons data from API
+  // Fetch lessons with filtering
   const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
-    queryKey: ['/api/lessons'],
+    queryKey: ['/api/lessons', selectedDifficulty],
+    queryFn: async () => {
+      const url = selectedDifficulty === "all" 
+        ? '/api/lessons'
+        : `/api/lessons?difficulty=${selectedDifficulty}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch lessons');
+      return response.json();
+    },
     enabled: !!user?.id,
   });
 
@@ -107,16 +104,18 @@ export default function LessonsPage() {
     },
   });
 
+  const difficulties = ["all", "Beginner", "Intermediate", "Advanced"];
+
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
       case 'beginner':
-        return 'bg-green-500';
+        return 'bg-green-500 hover:bg-green-600';
       case 'intermediate':
-        return 'bg-yellow-500';
+        return 'bg-yellow-500 hover:bg-yellow-600';
       case 'advanced':
-        return 'bg-red-500';
+        return 'bg-red-500 hover:bg-red-600';
       default:
-        return 'bg-gray-500';
+        return 'bg-gray-500 hover:bg-gray-600';
     }
   };
 
@@ -131,77 +130,119 @@ export default function LessonsPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-1 container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6">Trading Lessons</h1>
-        <div className="grid grid-cols-1 gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Available Lessons</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px] pr-4">
-                <div className="space-y-4">
-                  {isLoading ? (
-                    <div className="text-center py-4">Loading lessons...</div>
-                  ) : (
-                    lessons.map((lesson) => (
-                      <Card key={lesson.id} className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <h3 className="font-medium">{lesson.title}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {lesson.description}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <Badge
-                              variant="secondary"
-                              className={getDifficultyColor(lesson.difficulty)}
-                            >
-                              {lesson.difficulty}
-                            </Badge>
-                            <Badge variant="outline">+{lesson.xpReward} XP</Badge>
-                            <Dialog open={showFlashcards} onOpenChange={setShowFlashcards}>
-                              <DialogTrigger asChild>
-                                <button
-                                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-                                  onClick={() => {
-                                    setSelectedLesson(lesson);
-                                    setShowFlashcards(true);
-                                  }}
-                                >
-                                  <BookOpen className="mr-2 h-4 w-4" />
-                                  Start Lesson
-                                </button>
-                              </DialogTrigger>
-                              <DialogContent className="sm:max-w-3xl">
-                                <DialogHeader>
-                                  <DialogTitle>{lesson.title}</DialogTitle>
-                                </DialogHeader>
-                                {selectedLesson && (
-                                  <div className="mt-4">
-                                    <Flashcard
-                                      cards={createFlashcardsFromLesson(selectedLesson.content)}
-                                      onComplete={handleLessonComplete}
-                                    />
-                                  </div>
-                                )}
-                              </DialogContent>
-                            </Dialog>
-                          </div>
-                        </div>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+    <div className="max-w-6xl mx-auto p-6">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-4">Trading Academy</h1>
+        <div className="flex gap-2 mb-6">
+          {difficulties.map((diff) => (
+            <Badge
+              key={diff}
+              className={`cursor-pointer ${
+                selectedDifficulty === diff.toLowerCase()
+                  ? getDifficultyColor(diff)
+                  : 'bg-secondary'
+              }`}
+              onClick={() => setSelectedDifficulty(diff.toLowerCase())}
+            >
+              {diff.charAt(0).toUpperCase() + diff.slice(1)}
+            </Badge>
+          ))}
         </div>
-      </main>
-      <Footer />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Available Lessons</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[600px] pr-4">
+            <div className="space-y-4">
+              {isLoading ? (
+                <div className="text-center py-4">Loading lessons...</div>
+              ) : (
+                lessons.map((lesson) => (
+                  <Card key={lesson.id} className="p-4 hover:shadow-lg transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <h3 className="font-medium">{lesson.topic}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {lesson.description}
+                        </p>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
+                          <div className="flex items-center gap-1">
+                            <ScrollText className="w-4 h-4" />
+                            <span>Last updated: {new Date(lesson.lastUpdated).toLocaleDateString()}</span>
+                          </div>
+                          {lesson.xpReward && (
+                            <Badge variant="outline">+{lesson.xpReward} XP</Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <Badge
+                          className={getDifficultyColor(lesson.difficulty)}
+                        >
+                          {lesson.difficulty}
+                        </Badge>
+                        <Dialog open={showFlashcards && selectedLesson?.id === lesson.id} 
+                               onOpenChange={setShowFlashcards}>
+                          <DialogTrigger asChild>
+                            <button
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                              onClick={() => {
+                                setSelectedLesson(lesson);
+                                setShowFlashcards(true);
+                              }}
+                            >
+                              <BookOpen className="w-4 h-4" />
+                              Start Lesson
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-3xl">
+                            <DialogHeader>
+                              <DialogTitle>{lesson.topic}</DialogTitle>
+                            </DialogHeader>
+                            {selectedLesson && (
+                              <div className="mt-4">
+                                <div className="prose dark:prose-invert mb-6">
+                                  <div dangerouslySetInnerHTML={{ __html: selectedLesson.content }} />
+                                </div>
+                                <div className="flex gap-2 justify-end">
+                                  <button
+                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                                    onClick={() => {
+                                      // Start flashcards
+                                      const flashcards = createFlashcardsFromLesson(selectedLesson.content);
+                                      // You'll need to implement the Flashcard component
+                                      // setFlashcards(flashcards);
+                                    }}
+                                  >
+                                    <GraduationCap className="w-4 h-4" />
+                                    Practice with Flashcards
+                                  </button>
+                                  <button
+                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/90 transition-colors"
+                                    onClick={() => {
+                                      // Implement AI chat functionality
+                                    }}
+                                  >
+                                    <MessageCircle className="w-4 h-4" />
+                                    Ask AI Tutor
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   );
 }
