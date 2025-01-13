@@ -12,52 +12,71 @@ const openai = new OpenAI({
 });
 
 async function generateLesson(topic: string, difficulty: string): Promise<string> {
-  const prompt = `Create a comprehensive, in-depth trading lesson about "${topic}" for ${difficulty} level traders.
-  The lesson should be detailed enough to take 5-10 minutes to read and understand thoroughly.
+  const prompt = `Create an interactive, comprehensive trading lesson about "${topic}" for ${difficulty} level traders.
 
-  Structure the lesson with the following sections:
-  1. Introduction
-     - Overview of the topic
-     - Why this knowledge is important
-     - What traders will learn
+  Structure the lesson in this format:
 
-  2. Core Concepts (3-5 main concepts)
-     - Detailed explanations with real-world examples
-     - Historical context where relevant
-     - Common misconceptions and how to avoid them
+  # ${topic}
 
-  3. Practical Application
-     - Step-by-step guides
-     - Real market scenarios
-     - Decision-making frameworks
-     - Tools and techniques
+  ## Learning Objectives
+  [List 3-5 specific learning objectives]
 
-  4. Risk Considerations
-     - Potential pitfalls
-     - Risk management strategies
-     - Common mistakes to avoid
+  ## Introduction
+  [Brief overview and importance of the topic]
 
-  5. Advanced Concepts (for intermediate/advanced lessons)
-     - Complex strategies
-     - Market psychology
-     - Advanced tools and techniques
+  ## Core Concepts
+  [Explain main concepts with examples]
 
-  6. Practice and Exercises
-     - Case studies
-     - Practice scenarios
-     - Self-assessment questions
-     - Homework assignments
+  ### Key Terms
+  [Define important terminology]
 
-  7. Summary and Key Takeaways
-     - Main points recap
-     - Action items
-     - Further reading suggestions
+  ## Real-World Applications
+  [At least 2 detailed real-world trading scenarios]
 
-  Format the response in markdown with clear sections.
-  Use tables, bullet points, and numbered lists where appropriate.
-  Include specific examples from real market situations.
-  Add practical exercises that readers can complete.
-  Keep the tone educational but engaging.`;
+  ### Practice Scenario 1
+  **Situation:** [Real market situation]
+  **Your Task:** [What needs to be analyzed/decided]
+  <details>
+  <summary>Click to see solution</summary>
+  [Detailed explanation of the optimal approach]
+  </details>
+
+  ### Practice Scenario 2
+  **Situation:** [Another market scenario]
+  **Your Task:** [Decision making exercise]
+  <details>
+  <summary>Click to see solution</summary>
+  [Step-by-step solution]
+  </details>
+
+  ## Common Mistakes
+  [List of typical mistakes with prevention strategies]
+
+  ## Knowledge Check
+  ### Question 1
+  **Q:** [Challenging question about the topic]
+  <details>
+  <summary>Show Answer</summary>
+  [Detailed explanation]
+  </details>
+
+  ### Question 2
+  **Q:** [Another scenario-based question]
+  <details>
+  <summary>Show Answer</summary>
+  [Comprehensive answer]
+  </details>
+
+  ## Advanced Insights
+  [Deeper analysis and advanced strategies]
+
+  ## Summary
+  [Key takeaways and action items]
+
+  ## Further Resources
+  [Suggested readings and tools]
+
+  Format everything in proper markdown with clear sections and examples.`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -65,7 +84,7 @@ async function generateLesson(topic: string, difficulty: string): Promise<string
       messages: [
         { 
           role: "system", 
-          content: "You are an expert trading educator with decades of experience creating clear, accurate, and comprehensive lessons about trading and investing. Your goal is to create content that is both educational and engaging, with a focus on practical application and real-world examples."
+          content: "You are an expert trading educator with decades of experience creating clear, accurate, and comprehensive lessons about trading and investing. Focus on practical examples and real market scenarios."
         },
         { 
           role: "user", 
@@ -73,7 +92,7 @@ async function generateLesson(topic: string, difficulty: string): Promise<string
         }
       ],
       temperature: 0.7,
-      max_tokens: 4000, // Increased for longer content
+      max_tokens: 4000,
     });
 
     return completion.choices[0].message.content || '';
@@ -99,7 +118,6 @@ export async function generateAndStoreLesson({
   xpReward: number;
 }): Promise<void> {
   try {
-    // Check if lesson already exists
     const existingLesson = await db.query.lessons.findFirst({
       where: eq(lessons.title, title)
     });
@@ -112,7 +130,6 @@ export async function generateAndStoreLesson({
     console.log(`Generating lesson: ${title}`);
     const content = await generateLesson(topic, difficulty);
 
-    // Store the lesson in the database
     await db.insert(lessons).values({
       title,
       description,
