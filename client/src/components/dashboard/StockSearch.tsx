@@ -63,6 +63,11 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
 
     setResults(processedResults);
     setShowResults(processedResults.length > 0);
+
+    // Auto-select the top result if available when search button is clicked
+    if (processedResults.length > 0) {
+      handleSelect(processedResults[0].symbol);
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -76,7 +81,22 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
     const value = e.target.value;
     setSearchTerm(value);
     if (value.length >= 1) {
-      handleSearch();
+      // Only show results on input change, don't auto-select
+      const processedResults = stocks
+        .map((stock) => {
+          const symbolScore = calculateSimilarity(value, stock.symbol);
+          const nameScore = calculateSimilarity(value, stock.name);
+          return {
+            ...stock,
+            score: Math.max(symbolScore, nameScore)
+          };
+        })
+        .filter((result) => result.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
+
+      setResults(processedResults);
+      setShowResults(processedResults.length > 0);
     } else {
       setShowResults(false);
     }
