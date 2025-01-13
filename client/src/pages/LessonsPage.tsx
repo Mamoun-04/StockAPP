@@ -28,6 +28,8 @@ type Lesson = {
   totalXP: number;
 };
 
+import Header from "@/components/ui/header";
+
 export default function LessonPage() {
   const [isLessonOpen, setIsLessonOpen] = useState(false);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
@@ -130,7 +132,9 @@ export default function LessonPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="min-h-screen bg-background flex flex-col">
+      <Header />
+      <div className="max-w-6xl mx-auto p-6 flex-grow">
       <h1 className="text-3xl font-bold mb-6">Available Lessons</h1>
 
       <Card className="hover:shadow-lg transition-shadow">
@@ -229,6 +233,7 @@ export default function LessonPage() {
           </Accordion>
         </div>
       </Card>
+    </div>
     </div>
   );
 }
