@@ -99,7 +99,7 @@ export default function LessonPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header showSidebar={false} />
+      <Header />
       <div className="max-w-6xl mx-auto p-6 flex-1">
         <h1 className="text-3xl font-bold mb-6">Available Lessons</h1>
 
