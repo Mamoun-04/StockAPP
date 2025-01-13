@@ -8,30 +8,91 @@ import {
   users,
   type SelectUser,
 } from "@db/schema";
-import { eq, and } from "drizzle-orm";
-import { generateLesson } from "./lessonGenerator";
+import { eq, and, isNull, count } from "drizzle-orm";
 
 // Extend Express.Request with authenticated user
 interface RequestWithUser extends Request {
-  user?: SelectUser;
+  user: SelectUser;
 }
 
-// Simplified authentication middleware
-function requireAuth(req: RequestWithUser, res: Response, next: NextFunction) {
-  // For testing purposes, bypass authentication
+// Authentication middleware
+function requireAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
   next();
 }
 
+async function initializeLessons() {
+  const initialLessons = [
+    {
+      title: "Introduction to Stock Trading",
+      description: "Learn the basics of stock trading and market fundamentals",
+      content: "In this lesson, you'll learn about what stocks are, how the market works, and basic trading concepts.",
+      difficulty: "beginner",
+      xpReward: 100,
+      order: 1
+    },
+    {
+      title: "Technical Analysis Basics",
+      description: "Understanding charts and basic technical indicators",
+      content: "Learn how to read stock charts and understand basic technical indicators like moving averages.",
+      difficulty: "intermediate",
+      xpReward: 150,
+      order: 2
+    },
+    {
+      title: "Risk Management",
+      description: "Essential risk management strategies for trading",
+      content: "Understand position sizing, stop losses, and portfolio diversification.",
+      difficulty: "intermediate",
+      xpReward: 200,
+      order: 3
+    }
+  ];
+
+  // Add lessons if they don't exist
+  for (const lesson of initialLessons) {
+    const exists = await db.select().from(lessons).where(eq(lessons.title, lesson.title)).limit(1);
+    if (!exists.length) {
+      await db.insert(lessons).values(lesson);
+    }
+  }
+}
+
 export function setupLearningRoutes(app: Express): void {
-  // Get all lessons
-  app.get("/api/lessons", requireAuth, async (req: RequestWithUser, res: Response) => {
+  // Initialize lessons when routes are set up
+  initializeLessons().catch(console.error);
+  // Get all lessons with progress for current user
+  app.get("/api/lessons", requireAuth, async (req: Request, res: Response) => {
     try {
+      const user = req.user as SelectUser;
       const allLessons = await db
-        .select()
+        .select({
+          lessons: lessons,
+          user_progress: userProgress
+        })
         .from(lessons)
+        .leftJoin(
+          userProgress,
+          and(
+            eq(userProgress.lessonId, lessons.id),
+            eq(userProgress.userId, user.id)
+          )
+        )
         .orderBy(lessons.order);
 
-      res.json(allLessons);
+      const formattedLessons = allLessons.map(({ lessons: lesson, user_progress }) => ({
+        ...lesson,
+        userProgress: user_progress ? [user_progress] : [],
+      }));
+
+      res.json(formattedLessons);
     } catch (error: unknown) {
       console.error('Error fetching lessons:', error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
@@ -40,10 +101,10 @@ export function setupLearningRoutes(app: Express): void {
   });
 
   // Get a specific lesson by ID
-  app.get("/api/lessons/:id", requireAuth, async (req: RequestWithUser, res: Response) => {
+  app.get("/api/lessons/:id", requireAuth, async (req: Request, res: Response) => {
     try {
+      const user = req.user as SelectUser;
       const lessonId = parseInt(req.params.id);
-
       const lesson = await db
         .select()
         .from(lessons)
@@ -51,17 +112,7 @@ export function setupLearningRoutes(app: Express): void {
         .limit(1);
 
       if (!lesson.length) {
-        return res.status(404).json({ error: "Lesson not found" });
-      }
-
-      // If content is not generated yet, generate it
-      if (!lesson[0].content) {
-        const generatedContent = await generateLesson(lesson[0].title, lesson[0].difficulty);
-        await db
-          .update(lessons)
-          .set({ content: generatedContent })
-          .where(eq(lessons.id, lessonId));
-        lesson[0].content = generatedContent;
+        return res.status(404).send("Lesson not found");
       }
 
       res.json(lesson[0]);
@@ -72,11 +123,12 @@ export function setupLearningRoutes(app: Express): void {
     }
   });
 
-  // Mark lesson as completed
-  app.post("/api/lessons/:id/complete", requireAuth, async (req: RequestWithUser, res: Response) => {
+  // Mark lesson as completed and award XP
+  app.post("/api/lessons/:id/complete", requireAuth, async (req: Request, res: Response) => {
     try {
+      const user = req.user as SelectUser;
       const lessonId = parseInt(req.params.id);
-      const { score = 100 } = req.body;
+      const { score } = req.body;
 
       const [lesson] = await db
         .select()
@@ -85,8 +137,124 @@ export function setupLearningRoutes(app: Express): void {
         .limit(1);
 
       if (!lesson) {
-        return res.status(404).json({ error: "Lesson not found" });
+        return res.status(404).send("Lesson not found");
       }
+
+      // Check if lesson is already completed
+      const [existingProgress] = await db
+        .select()
+        .from(userProgress)
+        .where(
+          and(
+            eq(userProgress.userId, user.id),
+            eq(userProgress.lessonId, lessonId)
+          )
+        )
+        .limit(1);
+
+      if (existingProgress?.completed) {
+        return res.status(400).send("Lesson already completed");
+      }
+
+      // Start a transaction to update progress and award XP
+      await db.transaction(async (tx) => {
+        // Update or create progress
+        if (existingProgress) {
+          await tx
+            .update(userProgress)
+            .set({
+              completed: true,
+              score,
+              completedAt: new Date(),
+            })
+            .where(eq(userProgress.id, existingProgress.id));
+        } else {
+          await tx.insert(userProgress).values({
+            userId: user.id,
+            lessonId,
+            completed: true,
+            score,
+            completedAt: new Date(),
+          });
+        }
+
+        // Award XP to user
+        const newXP = user.xp + lesson.xpReward;
+        const newLevel = Math.floor(newXP / 1000) + 1;
+
+        await tx
+          .update(users)
+          .set({
+            xp: newXP,
+            level: newLevel,
+          })
+          .where(eq(users.id, user.id));
+
+        // Check for new achievements
+        const allAchievements = await tx
+          .select()
+          .from(achievements)
+          .leftJoin(
+            userAchievements,
+            and(
+              eq(userAchievements.achievementId, achievements.id),
+              eq(userAchievements.userId, user.id)
+            )
+          )
+          .where(isNull(userAchievements.id));
+
+        for (const { achievements: achievement } of allAchievements) {
+          if (!achievement) continue;
+
+          const requirement = achievement.requirement as {
+            type: "lessons_completed" | "xp_reached" | "level_reached";
+            value: number;
+          };
+
+          let isUnlocked = false;
+
+          switch (requirement.type) {
+            case "lessons_completed": {
+              const completedCount = await tx
+                .select({ value: count() })
+                .from(userProgress)
+                .where(
+                  and(
+                    eq(userProgress.userId, user.id),
+                    eq(userProgress.completed, true)
+                  )
+                );
+              isUnlocked = (completedCount[0]?.value || 0) >= requirement.value;
+              break;
+            }
+
+            case "xp_reached":
+              isUnlocked = newXP >= requirement.value;
+              break;
+
+            case "level_reached":
+              isUnlocked = newLevel >= requirement.value;
+              break;
+          }
+
+          if (isUnlocked) {
+            await tx.insert(userAchievements).values({
+              userId: user.id,
+              achievementId: achievement.id,
+            });
+
+            // Award achievement XP
+            const updatedXP = newXP + achievement.xpReward;
+            await tx
+              .update(users)
+              .set({
+                xp: updatedXP,
+                level: Math.floor(updatedXP / 1000) + 1,
+              })
+              .where(eq(users.id, user.id));
+          }
+        }
+      });
 
       res.json({ message: "Lesson completed successfully" });
     } catch (error: unknown) {
@@ -95,8 +263,9 @@ export function setupLearningRoutes(app: Express): void {
       res.status(500).json({ error: errorMessage });
     }
   });
+
   // Get user's achievements
-  app.get("/api/achievements", requireAuth, async (req: RequestWithUser, res: Response) => {
+  app.get("/api/achievements", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = req.user as SelectUser;
       const achievementsList = await db

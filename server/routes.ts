@@ -7,7 +7,6 @@ import { setupOpenAIRoutes } from "./openai";
 import { setupLearningRoutes } from "./learning";
 import { setupQuizRoutes } from "./quiz";
 import { setupFlashcardRoutes } from "./flashcards";
-import { generateInitialLessons } from "./lessonGenerator";
 import { db } from "@db";
 import express from 'express';
 
@@ -51,22 +50,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Setting up flashcard routes...");
     setupFlashcardRoutes(app);
     console.log("Flashcard routes registered");
-
-    // Add special admin routes
-    console.log("Setting up admin routes...");
-    app.post("/api/admin/generate-lessons", async (req, res) => {
-      try {
-        await generateInitialLessons();
-        res.json({ message: "Lessons generated successfully" });
-      } catch (error: any) {
-        console.error("Failed to generate lessons:", error);
-        res.status(500).json({ 
-          error: "Failed to generate lessons",
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
-      }
-    });
-    console.log("Admin routes registered");
 
     // Add error handling middleware last
     app.use((err: any, req: any, res: any, next: any) => {

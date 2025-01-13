@@ -16,6 +16,55 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+// Transform lesson content into fill-in-the-blank flashcard format
+function createFlashcardsFromLesson(content: string) {
+  const lines = content.split('\n').filter(line => line.trim());
+  const flashcards = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\d+\./.test(line)) {
+      const topic = line.replace(/^\d+\.\s*/, '').trim();
+      let details = [];
+
+      i++;
+      while (i < lines.length && !/^\d+\./.test(lines[i])) {
+        if (lines[i].trim()) {
+          details.push(lines[i].trim());
+        }
+        i++;
+      }
+      i--; // Move back one step since for loop will increment
+
+      if (details.length > 0) {
+        // Create fill-in-the-blank style questions
+        const key = topic.split(' ')[0]; // Use first word as the blank
+        flashcards.push({
+          question: `${topic.replace(key, '_____')} ?`,
+          answer: key
+        });
+
+        // Create additional cards from the details
+        details.forEach(detail => {
+          const words = detail.split(' ');
+          const keyWordIndex = Math.floor(words.length / 2);
+          const keyWord = words[keyWordIndex];
+          const question = words.map((word, idx) => 
+            idx === keyWordIndex ? '_____' : word
+          ).join(' ');
+
+          flashcards.push({
+            question: question,
+            answer: keyWord
+          });
+        });
+      }
+    }
+  }
+
+  return flashcards;
+}
+
 type Lesson = {
   id: number;
   title: string;
@@ -133,36 +182,10 @@ export default function LessonsPage() {
                                 </DialogHeader>
                                 {selectedLesson && (
                                   <div className="mt-4">
-                                    <div className="prose dark:prose-invert max-w-none">
-                                      <div dangerouslySetInnerHTML={{ 
-                                        __html: selectedLesson.content
-                                          .split('\n')
-                                          .map(line => {
-                                            if (line.startsWith('# ')) {
-                                              return `<h1 class="text-2xl font-bold mb-4">${line.slice(2)}</h1>`;
-                                            }
-                                            if (line.startsWith('## ')) {
-                                              return `<h2 class="text-xl font-bold mb-3 mt-6">${line.slice(3)}</h2>`;
-                                            }
-                                            if (line.startsWith('### ')) {
-                                              return `<h3 class="text-lg font-bold mb-2 mt-4">${line.slice(4)}</h3>`;
-                                            }
-                                            if (line.startsWith('- ')) {
-                                              return `<li class="ml-4">${line.slice(2)}</li>`;
-                                            }
-                                            return `<p class="mb-2">${line}</p>`;
-                                          })
-                                          .join('\n')
-                                      }} />
-                                    </div>
-                                    <div className="mt-8 flex justify-end">
-                                      <button
-                                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-                                        onClick={handleLessonComplete}
-                                      >
-                                        Complete Lesson
-                                      </button>
-                                    </div>
+                                    <Flashcard
+                                      cards={createFlashcardsFromLesson(selectedLesson.content)}
+                                      onComplete={handleLessonComplete}
+                                    />
                                   </div>
                                 )}
                               </DialogContent>
