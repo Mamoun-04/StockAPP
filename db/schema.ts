@@ -151,6 +151,7 @@ export const comments = pgTable("comments", {
 export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
   comments: many(comments),
+  likes: many(postLikes),
 }));
 
 export const postsRelations = relations(posts, ({ one, many }) => ({
@@ -202,6 +203,8 @@ export const insertPostSchema = createInsertSchema(posts);
 export const selectPostSchema = createSelectSchema(posts);
 export const insertCommentSchema = createInsertSchema(comments);
 export const selectCommentSchema = createSelectSchema(comments);
+export const insertPostLikeSchema = createInsertSchema(postLikes);
+export const selectPostLikeSchema = createSelectSchema(postLikes);
 
 export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
@@ -219,3 +222,5 @@ export type InsertPost = typeof posts.$inferInsert;
 export type SelectPost = typeof posts.$inferSelect;
 export type InsertComment = typeof comments.$inferInsert;
 export type SelectComment = typeof comments.$inferSelect;
+export type InsertPostLike = typeof postLikes.$inferInsert;
+export type SelectPostLike = typeof postLikes.$inferSelect;

@@ -30,10 +30,7 @@ const crypto = {
 
 declare global {
   namespace Express {
-    interface User extends SelectUser {
-      alpacaApiKey?: string;
-      alpacaSecretKey?: string;
-    }
+    interface User extends SelectUser {}
   }
 }
 
@@ -46,11 +43,11 @@ export async function setupAuth(app: Express) {
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: false, // Set to true only in production with HTTPS
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        secure: false,
+        maxAge: 24 * 60 * 60 * 1000
       },
       store: new MemoryStore({
-        checkPeriod: 86400000, // prune expired entries every 24h
+        checkPeriod: 86400000,
       }),
     };
 
@@ -76,14 +73,7 @@ export async function setupAuth(app: Express) {
             return done(null, false, { message: "Incorrect password." });
           }
 
-          // Add Alpaca credentials from environment if not set for user
-          const enhancedUser = {
-            ...user,
-            alpacaApiKey: user.alpacaApiKey || process.env.ALPACA_API_KEY,
-            alpacaSecretKey: user.alpacaSecretKey || process.env.ALPACA_SECRET_KEY
-          };
-
-          return done(null, enhancedUser);
+          return done(null, user);
         } catch (err) {
           console.error("Authentication error:", err);
           return done(err);
@@ -109,14 +99,7 @@ export async function setupAuth(app: Express) {
           return done(null, false);
         }
 
-        // Add Alpaca credentials from environment if not set for user
-        const enhancedUser = {
-          ...user,
-          alpacaApiKey: user.alpacaApiKey || process.env.ALPACA_API_KEY,
-          alpacaSecretKey: user.alpacaSecretKey || process.env.ALPACA_SECRET_KEY
-        };
-
-        done(null, enhancedUser);
+        done(null, user);
       } catch (err) {
         console.error("Deserialization error:", err);
         done(err);
@@ -170,9 +153,7 @@ export async function setupAuth(app: Express) {
             message: "Registration successful",
             user: {
               id: newUser.id,
-              username: newUser.username,
-              alpacaApiKey: process.env.ALPACA_API_KEY,
-              alpacaSecretKey: process.env.ALPACA_SECRET_KEY
+              username: newUser.username
             },
           });
         });
@@ -193,7 +174,7 @@ export async function setupAuth(app: Express) {
           return res.status(400).json({ error: info.message ?? "Login failed" });
         }
 
-        req.logIn(user, (err) => {
+        req.login(user, (err) => {
           if (err) {
             console.error("Login session creation failed:", err);
             return res.status(500).json({ error: "Login failed" });
@@ -203,9 +184,7 @@ export async function setupAuth(app: Express) {
             message: "Login successful",
             user: {
               id: user.id,
-              username: user.username,
-              alpacaApiKey: user.alpacaApiKey,
-              alpacaSecretKey: user.alpacaSecretKey
+              username: user.username
             },
           });
         });
@@ -229,9 +208,7 @@ export async function setupAuth(app: Express) {
       const user = req.user!;
       res.json({
         id: user.id,
-        username: user.username,
-        alpacaApiKey: user.alpacaApiKey,
-        alpacaSecretKey: user.alpacaSecretKey
+        username: user.username
       });
     });
 
