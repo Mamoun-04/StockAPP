@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { ScrollText, BookOpen, ChevronRight } from "lucide-react";
 import {
@@ -209,14 +210,25 @@ export default function LessonPage() {
             </div>
           </div>
 
-          {/* Preview of sections */}
-          <div className="mt-6 space-y-3">
-            {lesson.sections.map((section, index) => (
-              <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-secondary/10">
-                <span className="text-sm">{section.title}</span>
-                <Badge variant="outline">+{section.xpReward} XP</Badge>
-              </div>
-            ))}
+          {/* Collapsible sections */}
+          <div className="mt-6">
+            <Accordion type="single" collapsible className="space-y-2">
+              {lesson.sections.map((section, index) => (
+                <AccordionItem key={index} value={`section-${index}`} className="border rounded-lg bg-secondary/10">
+                  <AccordionTrigger className="px-4">
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-sm">{section.title}</span>
+                      <Badge variant="outline" className="ml-2">+{section.xpReward} XP</Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4">
+                    <div className="prose dark:prose-invert max-w-none">
+                      {section.content}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
           </div>
         </div>
       </Card>
