@@ -45,6 +45,10 @@ export default function TradingLessons() {
     setIsLessonOpen(true);
   };
 
+  const handleLessonComplete = () => {
+    //Implementation for lesson completion
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -157,29 +161,55 @@ export default function TradingLessons() {
                 <DialogHeader>
                   <DialogTitle>{selectedLesson.title}</DialogTitle>
                 </DialogHeader>
-                <div className="mt-4 prose dark:prose-invert">
-                  <div
-                    dangerouslySetInnerHTML={{
+                <div>
+                  <div className="prose dark:prose-invert max-w-none">
+                    <div dangerouslySetInnerHTML={{ 
                       __html: selectedLesson.content
                         .split('\n')
                         .map(line => {
                           if (line.startsWith('# ')) {
-                            return `<h1>${line.slice(2)}</h1>`;
+                            return `<h1 class="text-2xl font-bold mb-4">${line.slice(2)}</h1>`;
                           }
                           if (line.startsWith('## ')) {
-                            return `<h2>${line.slice(3)}</h2>`;
+                            return `<h2 class="text-xl font-bold mb-3 mt-6">${line.slice(3)}</h2>`;
                           }
                           if (line.startsWith('### ')) {
-                            return `<h3>${line.slice(4)}</h3>`;
+                            return `<h3 class="text-lg font-bold mb-2 mt-4">${line.slice(4)}</h3>`;
                           }
                           if (line.startsWith('- ')) {
-                            return `<li>${line.slice(2)}</li>`;
+                            return `<li class="ml-4">${line.slice(2)}</li>`;
                           }
-                          return line;
+                          return `<p class="mb-2">${line}</p>`;
                         })
                         .join('\n')
-                    }}
-                  />
+                    }} />
+                  </div>
+                  <div className="mt-8 flex justify-between items-center">
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        const sections = selectedLesson.content.split('\n## ');
+                        // Implementation for previous section
+                      }}
+                    >
+                      Previous Section
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        const sections = selectedLesson.content.split('\n## ');
+                        // Implementation for next section
+                      }}
+                    >
+                      Next Section
+                    </Button>
+                    <Button
+                      variant="default"
+                      onClick={handleLessonComplete}
+                      className="ml-4"
+                    >
+                      Complete Lesson
+                    </Button>
+                  </div>
                 </div>
               </>
             )}
