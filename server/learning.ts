@@ -28,7 +28,46 @@ function requireAuth(
   next();
 }
 
+async function initializeLessons() {
+  const initialLessons = [
+    {
+      title: "Introduction to Stock Trading",
+      description: "Learn the basics of stock trading and market fundamentals",
+      content: "In this lesson, you'll learn about what stocks are, how the market works, and basic trading concepts.",
+      difficulty: "beginner",
+      xpReward: 100,
+      order: 1
+    },
+    {
+      title: "Technical Analysis Basics",
+      description: "Understanding charts and basic technical indicators",
+      content: "Learn how to read stock charts and understand basic technical indicators like moving averages.",
+      difficulty: "intermediate",
+      xpReward: 150,
+      order: 2
+    },
+    {
+      title: "Risk Management",
+      description: "Essential risk management strategies for trading",
+      content: "Understand position sizing, stop losses, and portfolio diversification.",
+      difficulty: "intermediate",
+      xpReward: 200,
+      order: 3
+    }
+  ];
+
+  // Add lessons if they don't exist
+  for (const lesson of initialLessons) {
+    const exists = await db.select().from(lessons).where(eq(lessons.title, lesson.title)).limit(1);
+    if (!exists.length) {
+      await db.insert(lessons).values(lesson);
+    }
+  }
+}
+
 export function setupLearningRoutes(app: Express): void {
+  // Initialize lessons when routes are set up
+  initializeLessons().catch(console.error);
   // Get all lessons with progress for current user
   app.get("/api/lessons", requireAuth, async (req: Request, res: Response) => {
     try {
