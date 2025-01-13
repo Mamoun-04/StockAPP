@@ -7,6 +7,8 @@ import { ScrollText, BookOpen, GraduationCap } from "lucide-react";
 import { useLocation } from "wouter";
 import Header from '@/components/ui/header';
 
+import { Badge } from "@/components/ui/badge";
+
 type Lesson = {
   id: number;
   title: string;
