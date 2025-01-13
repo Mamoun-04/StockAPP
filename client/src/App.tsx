@@ -30,7 +30,8 @@ function App() {
   return (
     <>
       <Switch>
-        <Route path="/" component={DashboardPage} />
+        <Route path="/" component={FeedPage} />
+        <Route path="/dashboard" component={DashboardPage} />
         <Route path="/learn" component={LearningPage} />
         <Route path="/learn/quizzes" component={QuizzesPage} />
         <Route path="/learn/lessons" component={LessonsPage} />
