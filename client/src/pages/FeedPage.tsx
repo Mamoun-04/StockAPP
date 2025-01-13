@@ -174,20 +174,19 @@ export default function FeedPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen bg-background relative">
       <Header />
-      <div className="flex flex-1">
+      <div className="flex min-h-[calc(100vh-8rem)] pt-16">
         <NavigationSidebar />
-        <main className="flex-grow p-8">
+        <main className="flex-1 p-6 ml-64">
           <div className="max-w-3xl mx-auto space-y-6">
-            {/* New Post Form */}
             <Card>
               <CardContent className="pt-6">
                 <Textarea
                   placeholder="Share your trading insights..."
                   value={newPost}
                   onChange={(e) => setNewPost(e.target.value)}
-                  className="resize-none h-[120px] mb-4 focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                  className="resize-none h-[120px] mb-4"
                 />
                 <div className="flex justify-end">
                   <Button
@@ -203,7 +202,6 @@ export default function FeedPage() {
               </CardContent>
             </Card>
 
-            {/* Posts Feed */}
             {isLoading ? (
               <div className="text-center py-4">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto" />
@@ -214,7 +212,6 @@ export default function FeedPage() {
                 {posts.map((post) => (
                   <Card key={post.id}>
                     <CardContent className="pt-6">
-                      {/* Post Header */}
                       <div className="flex items-center space-x-4 mb-4">
                         <Avatar>
                           {post.author?.avatarUrl && (
@@ -237,13 +234,11 @@ export default function FeedPage() {
                         </div>
                       </div>
 
-                      {/* Post Content */}
                       <div>
                         <p className="text-sm">{post.content}</p>
                         {renderTradeInfo(post)}
                       </div>
 
-                      {/* Comments Section */}
                       <div className="mt-4">
                         <div className="text-sm font-medium text-muted-foreground mb-2">
                           {post.comments?.length || 0} comments
@@ -279,21 +274,19 @@ export default function FeedPage() {
                           </div>
                         </ScrollArea>
 
-                        {/* Add Comment */}
                         <div className="mt-4 flex gap-2">
                           <Textarea
                             placeholder="Write a comment..."
                             value={newComment[post.id] || ''}
                             onChange={(e) => {
-                              // Auto-resize the textarea
-                              e.target.style.height = '40px'; // Initial height
-                              e.target.style.height = `${Math.min(e.target.scrollHeight, 100)}px`; // Limit max height
+                              e.target.style.height = '40px';
+                              e.target.style.height = `${Math.min(e.target.scrollHeight, 100)}px`;
                               setNewComment({
                                 ...newComment,
                                 [post.id]: e.target.value
                               });
                             }}
-                            className="flex-1 min-h-[40px] max-h-[40px] py-2 resize-none overflow-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2" //overflow-hidden removes scrollbar
+                            className="flex-1 min-h-[40px] max-h-[40px] py-2 resize-none overflow-hidden"
                           />
                           <Button
                             size="sm"
