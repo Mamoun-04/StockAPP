@@ -2,10 +2,11 @@ import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   Home,
-  LayoutDashboard,
-  GraduationCap,
-  BookOpen,
-  Brain,
+  Compass,
+  Bell,
+  MessageSquare,
+  Bookmark,
+  Users,
   User,
   MoreHorizontal,
 } from "lucide-react";
@@ -14,10 +15,11 @@ import { Button } from "@/components/ui/button";
 export default function NavigationSidebar() {
   const navItems = [
     { icon: Home, label: "Home", href: "/" },
-    { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-    { icon: GraduationCap, label: "Learn", href: "/learn" },
-    { icon: BookOpen, label: "Lessons", href: "/learn/lessons" },
-    { icon: Brain, label: "Quizzes", href: "/learn/quizzes" },
+    { icon: Compass, label: "Explore", href: "/explore" },
+    { icon: Bell, label: "Notifications", href: "/notifications" },
+    { icon: MessageSquare, label: "Messages", href: "/messages" },
+    { icon: Bookmark, label: "Bookmarks", href: "/bookmarks" },
+    { icon: Users, label: "Communities", href: "/communities" },
     { icon: User, label: "Profile", href: "/profile" },
   ];
 
