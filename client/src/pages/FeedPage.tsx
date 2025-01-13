@@ -206,7 +206,7 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Header />
+      <Header showSidebar={true} />
       <div className="flex flex-1">
         <NavigationSidebar />
         <main className="flex-grow p-8">
