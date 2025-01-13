@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-export default function Header() {
+export function Header() {
   const { logout } = useUser();
   const [location] = useLocation();
 
