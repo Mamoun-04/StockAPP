@@ -105,6 +105,12 @@ export default function LessonPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lessons'] });
       setIsLessonOpen(false);
+      setCurrentSectionIndex(0);
+    },
+    onError: (error) => {
+      console.error('Failed to complete lesson:', error);
+      setIsLessonOpen(false);
+      setCurrentSectionIndex(0);
     }
   });
 
