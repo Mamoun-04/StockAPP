@@ -106,12 +106,14 @@ export const repostsRelations = relations(reposts, ({ one }) => ({
 }));
 
 // Schema validation
-//export const insertUserSchema = createInsertSchema(users);
-//export const selectUserSchema = createSelectSchema(users);
-//export const insertPostSchema = createInsertSchema(posts);
-//export const selectPostSchema = createSelectSchema(posts);
-//export const insertPostLikeSchema = createInsertSchema(postLikes);
-//export const selectPostLikeSchema = createSelectSchema(postLikes);
+import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
+
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);
+export const insertPostSchema = createInsertSchema(posts);
+export const selectPostSchema = createSelectSchema(posts);
+export const insertPostLikeSchema = createInsertSchema(postLikes);
+export const selectPostLikeSchema = createSelectSchema(postLikes);
 
 // Types
 //export type InsertUser = typeof users.$inferInsert;
